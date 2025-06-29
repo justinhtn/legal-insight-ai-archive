@@ -8,6 +8,11 @@ export interface SearchResult {
   content: string;
   similarity: number;
   chunk_index: number;
+  page_number?: number;
+  line_start?: number;
+  line_end?: number;
+  client?: string;
+  matter?: string;
 }
 
 export interface SearchResponse {
