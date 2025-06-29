@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { User, LogOut } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 interface AuthButtonProps {
   user: any;
@@ -100,7 +101,7 @@ const AuthButton: React.FC<AuthButtonProps> = ({ user, onAuthChange }) => {
         Sign In
       </Button>
 
-      {showAuthForm && (
+      {showAuthForm && createPortal(
         <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 overflow-y-auto">
           <div className="w-full max-w-md my-8">
             <Card className="w-full bg-white dark:bg-gray-900">
@@ -168,7 +169,8 @@ const AuthButton: React.FC<AuthButtonProps> = ({ user, onAuthChange }) => {
               </CardContent>
             </Card>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
