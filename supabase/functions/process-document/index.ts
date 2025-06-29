@@ -49,27 +49,10 @@ serve(async (req) => {
 
     console.log('Document inserted with ID:', document.id)
 
-    // Only process embeddings if we have actual text content
+    // Process embeddings if we have content
     if (content && content.trim().length > 0) {
-      // Check for placeholder content and skip if found
-      const isPlaceholderContent = content.includes('requires server-side processing') || 
-                                   content.includes('requires specialized processing')
+      console.log('Starting embedding generation for content...')
       
-      if (isPlaceholderContent) {
-        console.log('Skipping embedding generation for placeholder content')
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            document_id: document.id,
-            message: 'Document uploaded successfully (embeddings skipped for placeholder content)'
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          },
-        )
-      }
-
       // Split content into chunks for embedding
       const chunks = splitIntoChunks(content, 1000)
       console.log(`Split content into ${chunks.length} chunks`)
@@ -81,7 +64,6 @@ serve(async (req) => {
         throw new Error('OpenAI API key not configured')
       }
 
-      console.log('Starting embedding generation...')
       let successfulEmbeddings = 0
 
       for (let i = 0; i < chunks.length; i++) {
@@ -107,8 +89,8 @@ serve(async (req) => {
             
             // If it's a rate limit error, wait and retry once
             if (response.status === 429) {
-              console.log('Rate limit hit, waiting 2 seconds before retry...')
-              await new Promise(resolve => setTimeout(resolve, 2000))
+              console.log('Rate limit hit, waiting 5 seconds before retry...')
+              await new Promise(resolve => setTimeout(resolve, 5000))
               
               const retryResponse = await fetch('https://api.openai.com/v1/embeddings', {
                 method: 'POST',
@@ -172,7 +154,7 @@ serve(async (req) => {
 
           // Small delay between requests to avoid rate limiting
           if (i < chunks.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 100))
+            await new Promise(resolve => setTimeout(resolve, 200))
           }
 
         } catch (chunkError) {
