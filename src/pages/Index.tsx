@@ -17,6 +17,8 @@ const Index = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [aiResponse, setAiResponse] = useState<string>("");
+  const [searchMessage, setSearchMessage] = useState<string>("");
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const { theme, setTheme } = useTheme();
@@ -40,6 +42,8 @@ const Index = () => {
     setHasSearched(false);
     setSearchResults([]);
     setSearchQuery("");
+    setAiResponse("");
+    setSearchMessage("");
   };
 
   const handleDocumentUpload = (files: File[]) => {
@@ -74,10 +78,12 @@ const Index = () => {
     setHasSearched(true);
 
     try {
-      const results = await searchDocuments(searchQuery.trim());
-      setSearchResults(results);
+      const response = await searchDocuments(searchQuery.trim());
+      setSearchResults(response.results);
+      setAiResponse(response.ai_response || "");
+      setSearchMessage(response.message || "");
       
-      if (results.length === 0) {
+      if (response.results.length === 0 && !response.ai_response) {
         toast({
           title: "No results found",
           description: "Try adjusting your search query or upload more documents.",
@@ -91,6 +97,8 @@ const Index = () => {
         variant: "destructive",
       });
       setSearchResults([]);
+      setAiResponse("");
+      setSearchMessage("");
     } finally {
       setIsSearching(false);
     }
@@ -210,7 +218,9 @@ const Index = () => {
                   <SearchResults 
                     results={searchResults} 
                     query={searchQuery} 
-                    isLoading={isSearching} 
+                    isLoading={isSearching}
+                    aiResponse={aiResponse}
+                    message={searchMessage}
                   />
                 </div>
               ) : (

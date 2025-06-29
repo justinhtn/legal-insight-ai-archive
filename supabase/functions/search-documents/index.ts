@@ -108,14 +108,71 @@ serve(async (req) => {
     const results = embeddings
       .map(embedding => {
         const similarity = cosineSimilarity(queryEmbedding, embedding.embedding)
+        console.log(`Similarity for chunk ${embedding.chunk_index}: ${similarity}`)
         return {
           ...embedding,
           similarity
         }
       })
-      .filter(result => result.similarity > 0.7) // Filter for relevant results
+      .filter(result => result.similarity > 0.3) // Lowered threshold from 0.7 to 0.3
       .sort((a, b) => b.similarity - a.similarity) // Sort by similarity desc
       .slice(0, 10) // Limit to top 10 results
+
+    console.log(`Found ${results.length} results above similarity threshold`)
+
+    // If no results found with document search, use OpenAI chat completion with context
+    if (results.length === 0) {
+      console.log('No similar documents found, falling back to OpenAI chat completion')
+      
+      // Get all document content for context
+      const allContent = embeddings.map(e => e.content).join('\n\n')
+      
+      const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a helpful legal document assistant. You have access to the user's uploaded documents. Here is the content from their documents:\n\n${allContent}\n\nAnswer the user's question based on this content. If the content doesn't contain relevant information, say so clearly.`
+            },
+            {
+              role: 'user',
+              content: query
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 1000
+        }),
+      })
+
+      if (!chatResponse.ok) {
+        const errorText = await chatResponse.text()
+        console.error(`OpenAI Chat API error: ${chatResponse.status} ${chatResponse.statusText} - ${errorText}`)
+        throw new Error(`OpenAI Chat API error: ${chatResponse.statusText}`)
+      }
+
+      const chatData = await chatResponse.json()
+      const aiResponse = chatData.choices[0].message.content
+
+      console.log('Generated AI response using RAG fallback')
+
+      return new Response(
+        JSON.stringify({ 
+          results: [],
+          ai_response: aiResponse,
+          message: 'No direct document matches found. Here\'s what I can tell you based on your documents:'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      )
+    }
 
     console.log(`Returning ${results.length} search results`)
 

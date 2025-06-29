@@ -1,16 +1,18 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText } from "lucide-react";
+import { FileText, Bot } from "lucide-react";
 import { SearchResult } from "@/services/searchService";
 
 interface SearchResultsProps {
   results: SearchResult[];
   query: string;
   isLoading: boolean;
+  aiResponse?: string;
+  message?: string;
 }
 
-const SearchResults = ({ results, query, isLoading }: SearchResultsProps) => {
+const SearchResults = ({ results, query, isLoading, aiResponse, message }: SearchResultsProps) => {
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -38,18 +40,6 @@ const SearchResults = ({ results, query, isLoading }: SearchResultsProps) => {
     return null;
   }
 
-  if (results.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <FileText className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-semibold text-gray-900">No results found</h3>
-        <p className="mt-1 text-sm text-gray-500">
-          Try adjusting your search query or upload more documents.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -57,33 +47,67 @@ const SearchResults = ({ results, query, isLoading }: SearchResultsProps) => {
           Search Results for "{query}"
         </h3>
         <Badge variant="secondary">
-          {results.length} result{results.length !== 1 ? 's' : ''}
+          {results.length} document result{results.length !== 1 ? 's' : ''}
         </Badge>
       </div>
+
+      {/* Show AI response if available */}
+      {aiResponse && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center text-base text-blue-800">
+              <Bot className="mr-2 h-4 w-4" />
+              AI Analysis
+            </CardTitle>
+            {message && (
+              <p className="text-sm text-blue-600">{message}</p>
+            )}
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-blue-900 leading-relaxed whitespace-pre-wrap">
+              {aiResponse}
+            </p>
+          </CardContent>
+        </Card>
+      )}
       
-      <div className="space-y-4">
-        {results.map((result, index) => (
-          <Card key={`${result.document_id}-${result.chunk_index}`} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center text-base">
-                <FileText className="mr-2 h-4 w-4" />
-                {result.document_title}
-              </CardTitle>
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <span>{result.document_file_name}</span>
-                <Badge variant="outline" className="text-xs">
-                  {Math.round(result.similarity * 100)}% match
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-700 leading-relaxed">
-                {result.content}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Show document results if available */}
+      {results.length > 0 && (
+        <div className="space-y-4">
+          {results.map((result, index) => (
+            <Card key={`${result.document_id}-${result.chunk_index}`} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-base">
+                  <FileText className="mr-2 h-4 w-4" />
+                  {result.document_title}
+                </CardTitle>
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                  <span>{result.document_file_name}</span>
+                  <Badge variant="outline" className="text-xs">
+                    {Math.round(result.similarity * 100)}% match
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  {result.content}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Show message when no results found and no AI response */}
+      {results.length === 0 && !aiResponse && (
+        <div className="text-center py-8">
+          <FileText className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-semibold text-gray-900">No results found</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Try adjusting your search query or upload more documents.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

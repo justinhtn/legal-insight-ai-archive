@@ -10,7 +10,13 @@ export interface SearchResult {
   chunk_index: number;
 }
 
-export const searchDocuments = async (query: string): Promise<SearchResult[]> => {
+export interface SearchResponse {
+  results: SearchResult[];
+  ai_response?: string;
+  message?: string;
+}
+
+export const searchDocuments = async (query: string): Promise<SearchResponse> => {
   const { data, error } = await supabase.functions.invoke('search-documents', {
     body: { query }
   });
@@ -19,5 +25,9 @@ export const searchDocuments = async (query: string): Promise<SearchResult[]> =>
     throw new Error(`Failed to search documents: ${error.message}`);
   }
 
-  return data.results || [];
+  return {
+    results: data.results || [],
+    ai_response: data.ai_response,
+    message: data.message
+  };
 };
