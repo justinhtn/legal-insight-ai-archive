@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +11,8 @@ import {
   MoreVertical,
   Upload
 } from 'lucide-react';
-import { Client, Folder as FolderType, getClients, getFolders } from '@/services/clientService';
+import { supabase } from '@/integrations/supabase/client';
+import { Client, Folder as FolderType, getClients, getFolders, createFolder } from '@/services/clientService';
 import { getDocuments } from '@/services/documentService';
 import { useToast } from '@/hooks/use-toast';
 import {
