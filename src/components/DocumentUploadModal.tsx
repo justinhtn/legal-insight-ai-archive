@@ -200,23 +200,39 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const uploadDocumentWithAssignment = async (file: File) => {
     const documentData = await uploadDocument(file);
     
-    // Automatically assign to current client and folder if available
-    const clientId = currentClientId || selectedClientId;
-    const folderId = currentFolderId || selectedFolderId;
+    // Get the final client and folder IDs
+    const finalClientId = currentClientId || selectedClientId;
+    const finalFolderId = currentFolderId || selectedFolderId;
     
-    if (clientId || folderId) {
+    console.log('Assigning document:', {
+      documentId: documentData.id,
+      clientId: finalClientId,
+      folderId: finalFolderId
+    });
+    
+    // Only update if we have valid IDs to assign
+    if (finalClientId || finalFolderId) {
+      const updateData: any = {};
+      
+      if (finalClientId) {
+        updateData.client_id = finalClientId;
+      }
+      
+      if (finalFolderId) {
+        updateData.folder_id = finalFolderId;
+      }
+
       const { error } = await supabase
         .from('documents')
-        .update({
-          client_id: clientId || null,
-          folder_id: folderId || null
-        })
+        .update(updateData)
         .eq('id', documentData.id);
 
       if (error) {
         console.error('Assignment error:', error);
         throw new Error('Failed to assign document to client/folder');
       }
+      
+      console.log('Document assigned successfully');
     }
 
     return documentData;

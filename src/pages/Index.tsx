@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Upload, Search, FolderOpen, FileText, Moon, Sun, Home, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -350,7 +351,7 @@ const Index = () => {
           </SidebarContent>
         </Sidebar>
 
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="flex h-14 items-center px-4 lg:px-6">
               <SidebarTrigger />
@@ -388,10 +389,16 @@ const Index = () => {
             </div>
           </header>
 
-          <main className="flex-1 p-6">
-            <div className="max-w-7xl mx-auto space-y-6">
-              {renderContent()}
-            </div>
+          <main className="flex-1 overflow-hidden">
+            {viewMode === 'explorer' ? (
+              renderContent()
+            ) : (
+              <div className="p-6">
+                <div className="max-w-7xl mx-auto space-y-6">
+                  {renderContent()}
+                </div>
+              </div>
+            )}
           </main>
         </div>
 

@@ -68,7 +68,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
 
   useEffect(() => {
     loadCurrentItems();
-  }, [currentPath]);
+  }, [currentPath, selectedFolderId]);
 
   useEffect(() => {
     if (currentLocation.type === 'client') {
@@ -206,7 +206,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
 
       setNewFolderName('');
       setShowNewFolderDialog(false);
+      
+      // Refresh folders and current items
       await loadClientAndFolders(currentClient.id);
+      await loadCurrentItems();
       
       toast({
         title: "Success",
@@ -235,7 +238,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
         matter_type: ''
       });
       setShowNewClientDialog(false);
-      loadCurrentItems();
+      
+      // Refresh the items list
+      await loadCurrentItems();
       
       toast({
         title: "Success",
