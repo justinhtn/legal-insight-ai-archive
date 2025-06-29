@@ -6,10 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useTheme } from "next-themes";
+import DocumentUpload from "@/components/DocumentUpload";
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const { theme, setTheme } = useTheme();
+
+  const handleDocumentUpload = (files: File[]) => {
+    console.log('Uploaded files:', files);
+    // Here you would typically process and store the files
+    // For now, we'll just log them to the console
+  };
 
   return (
     <SidebarProvider>
@@ -85,7 +93,7 @@ const Index = () => {
                     AI-powered search across all your legal documents and pleadings
                   </p>
                 </div>
-                <Button>
+                <Button onClick={() => setIsUploadOpen(true)}>
                   <Upload className="mr-2 h-4 w-4" />
                   Upload Documents
                 </Button>
@@ -166,6 +174,12 @@ const Index = () => {
             </div>
           </main>
         </div>
+
+        <DocumentUpload
+          isOpen={isUploadOpen}
+          onClose={() => setIsUploadOpen(false)}
+          onUpload={handleDocumentUpload}
+        />
       </div>
     </SidebarProvider>
   );
