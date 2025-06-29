@@ -33,6 +33,8 @@ const AuthButton: React.FC<AuthButtonProps> = ({ user, onAuthChange }) => {
       
       toast.success('Signed in successfully!');
       setShowAuthForm(false);
+      setEmail('');
+      setPassword('');
       onAuthChange();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Sign in failed');
@@ -49,12 +51,17 @@ const AuthButton: React.FC<AuthButtonProps> = ({ user, onAuthChange }) => {
       const { error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
       });
 
       if (error) throw error;
       
       toast.success('Account created! Please check your email to verify your account.');
       setShowAuthForm(false);
+      setEmail('');
+      setPassword('');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Sign up failed');
     } finally {
@@ -89,26 +96,43 @@ const AuthButton: React.FC<AuthButtonProps> = ({ user, onAuthChange }) => {
 
   if (showAuthForm) {
     return (
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md mx-auto">
         <CardHeader>
-          <CardTitle>{isSignUp ? 'Create Account' : 'Sign In'}</CardTitle>
+          <CardTitle className="text-center">
+            {isSignUp ? 'Create Account' : 'Sign In'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div className="space-y-2">
+              <label htmlFor="email" className="text-sm font-medium">
+                Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full"
+                minLength={6}
+              />
+            </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={isLoading} className="flex-1">
                 {isLoading ? 'Loading...' : (isSignUp ? 'Sign Up' : 'Sign In')}
@@ -116,7 +140,11 @@ const AuthButton: React.FC<AuthButtonProps> = ({ user, onAuthChange }) => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setShowAuthForm(false)}
+                onClick={() => {
+                  setShowAuthForm(false);
+                  setEmail('');
+                  setPassword('');
+                }}
               >
                 Cancel
               </Button>
