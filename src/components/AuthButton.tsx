@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,72 +101,70 @@ const AuthButton: React.FC<AuthButtonProps> = ({ user, onAuthChange }) => {
 
       {showAuthForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Card className="w-full max-w-md bg-white dark:bg-gray-900 mx-auto">
-              <CardHeader>
-                <CardTitle className="text-center">
-                  {isSignUp ? 'Create Account' : 'Sign In'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-medium">
-                      Email
-                    </label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="password" className="text-sm font-medium">
-                      Password
-                    </label>
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      className="w-full"
-                      minLength={6}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="submit" disabled={isLoading} className="flex-1">
-                      {isLoading ? 'Loading...' : (isSignUp ? 'Sign Up' : 'Sign In')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setShowAuthForm(false);
-                        setEmail('');
-                        setPassword('');
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
+          <Card className="w-full max-w-md bg-white dark:bg-gray-900">
+            <CardHeader>
+              <CardTitle className="text-center">
+                {isSignUp ? 'Create Account' : 'Sign In'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium">
+                    Email
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium">
+                    Password
+                  </label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="w-full"
+                    minLength={6}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button type="submit" disabled={isLoading} className="flex-1">
+                    {isLoading ? 'Loading...' : (isSignUp ? 'Sign Up' : 'Sign In')}
+                  </Button>
                   <Button
                     type="button"
-                    variant="ghost"
-                    className="w-full"
-                    onClick={() => setIsSignUp(!isSignUp)}
+                    variant="outline"
+                    onClick={() => {
+                      setShowAuthForm(false);
+                      setEmail('');
+                      setPassword('');
+                    }}
                   >
-                    {isSignUp ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
+                    Cancel
                   </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                >
+                  {isSignUp ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       )}
     </>
