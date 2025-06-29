@@ -1,15 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Upload, X, FileText, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { uploadDocument } from '@/services/documentService';
-import { Client, Folder, getClients, getFolders, createClient, createFolder } from '@/services/clientService';
+import { getClients, Client, getFolders, Folder } from '@/services/clientService';
 
 interface UploadedFile {
   file: File;
@@ -22,102 +19,73 @@ interface DocumentUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpload: (files: File[]) => void;
-  currentClientId?: string;
-  currentFolderId?: string;
+  selectedClientId?: string;
+  selectedFolderId?: string;
 }
 
 const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({ 
   isOpen, 
   onClose, 
-  onUpload,
-  currentClientId,
-  currentFolderId
+  onUpload, 
+  selectedClientId,
+  selectedFolderId 
 }) => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState(currentClientId || '');
-  const [selectedFolderId, setSelectedFolderId] = useState(currentFolderId || '');
-  const [newClientName, setNewClientName] = useState('');
-  const [newFolderName, setNewFolderName] = useState('');
-  const [showNewClientInput, setShowNewClientInput] = useState(false);
-  const [showNewFolderInput, setShowNewFolderInput] = useState(false);
+  const [currentClientId, setCurrentClientId] = useState<string>(selectedClientId || '');
+  const [currentFolderId, setCurrentFolderId] = useState<string>(selectedFolderId || '');
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [isLoadingFolders, setIsLoadingFolders] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isOpen) {
       loadClients();
-      if (currentClientId) {
-        setSelectedClientId(currentClientId);
-        loadFolders(currentClientId);
+      if (selectedClientId) {
+        setCurrentClientId(selectedClientId);
+        loadFolders(selectedClientId);
       }
-      if (currentFolderId) {
-        setSelectedFolderId(currentFolderId);
+      if (selectedFolderId) {
+        setCurrentFolderId(selectedFolderId);
       }
     }
-  }, [isOpen, currentClientId, currentFolderId]);
+  }, [isOpen, selectedClientId, selectedFolderId]);
 
-  useEffect(() => {
-    if (selectedClientId) {
-      loadFolders(selectedClientId);
-    } else {
-      setFolders([]);
-      setSelectedFolderId('');
+  React.useEffect(() => {
+    if (currentClientId) {
+      loadFolders(currentClientId);
+      // Reset folder selection when client changes (unless it's the initial load)
+      if (currentClientId !== selectedClientId) {
+        setCurrentFolderId('');
+      }
     }
-  }, [selectedClientId]);
+  }, [currentClientId]);
 
   const loadClients = async () => {
+    setIsLoadingClients(true);
     try {
       const clientsData = await getClients();
       setClients(clientsData);
     } catch (error) {
       console.error('Error loading clients:', error);
+      toast.error('Failed to load clients');
+    } finally {
+      setIsLoadingClients(false);
     }
   };
 
   const loadFolders = async (clientId: string) => {
+    setIsLoadingFolders(true);
     try {
       const foldersData = await getFolders(clientId);
       setFolders(foldersData);
     } catch (error) {
       console.error('Error loading folders:', error);
-    }
-  };
-
-  const handleCreateClient = async () => {
-    if (!newClientName.trim()) return;
-
-    try {
-      const newClient = await createClient({ name: newClientName.trim() });
-      setClients([...clients, newClient]);
-      setSelectedClientId(newClient.id);
-      setNewClientName('');
-      setShowNewClientInput(false);
-      toast.success('Client created successfully');
-    } catch (error) {
-      console.error('Error creating client:', error);
-      toast.error('Failed to create client');
-    }
-  };
-
-  const handleCreateFolder = async () => {
-    if (!newFolderName.trim() || !selectedClientId) return;
-
-    try {
-      const newFolder = await createFolder({
-        client_id: selectedClientId,
-        name: newFolderName.trim(),
-        parent_folder_id: null // Fix: Use null instead of undefined
-      });
-      setFolders([...folders, newFolder]);
-      setSelectedFolderId(newFolder.id);
-      setNewFolderName('');
-      setShowNewFolderInput(false);
-      toast.success('Folder created successfully');
-    } catch (error) {
-      console.error('Error creating folder:', error);
-      toast.error('Failed to create folder');
+      toast.error('Failed to load folders');
+    } finally {
+      setIsLoadingFolders(false);
     }
   };
 
@@ -156,6 +124,8 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
   const processFile = async (uploadFile: UploadedFile) => {
     try {
+      console.log('Processing file:', uploadFile.file.name, 'with clientId:', currentClientId, 'folderId:', currentFolderId);
+      
       // Update status to processing
       setUploadedFiles(prev => 
         prev.map(f => 
@@ -173,8 +143,19 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         )
       );
 
-      // Upload to backend with client and folder assignment
-      await uploadDocumentWithAssignment(uploadFile.file);
+      // Upload to backend with client and folder IDs
+      const clientIdToUse = currentClientId || null;
+      const folderIdToUse = currentFolderId || null;
+      
+      console.log('Uploading with assignments:', { clientIdToUse, folderIdToUse });
+      
+      const result = await uploadDocument(
+        uploadFile.file, 
+        clientIdToUse, 
+        folderIdToUse
+      );
+
+      console.log('Upload result:', result);
 
       // Mark as completed
       setUploadedFiles(prev => 
@@ -184,6 +165,8 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             : f
         )
       );
+
+      toast.success(`Successfully processed ${uploadFile.file.name}`);
 
     } catch (error) {
       console.error('Error processing file:', error);
@@ -196,51 +179,6 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       );
       toast.error(`Failed to process ${uploadFile.file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  };
-
-  const uploadDocumentWithAssignment = async (file: File) => {
-    const documentData = await uploadDocument(file);
-    
-    // Get the final client and folder IDs - prioritize current context
-    const finalClientId = currentClientId || selectedClientId;
-    const finalFolderId = currentFolderId || selectedFolderId;
-    
-    console.log('Assigning document:', {
-      documentId: documentData.id,
-      clientId: finalClientId,
-      folderId: finalFolderId || null, // Fix: Use null instead of undefined
-      currentContext: { currentClientId, currentFolderId },
-      selectedContext: { selectedClientId, selectedFolderId }
-    });
-    
-    // Always assign at least to a client, folder is optional
-    if (finalClientId) {
-      const updateData: any = {
-        client_id: finalClientId
-      };
-      
-      // Fix: Only add folder_id if we have a valid folder ID, otherwise let it be null
-      if (finalFolderId) {
-        updateData.folder_id = finalFolderId;
-      }
-      // If no folder is selected, folder_id will remain null (not undefined)
-
-      const { error } = await supabase
-        .from('documents')
-        .update(updateData)
-        .eq('id', documentData.id);
-
-      if (error) {
-        console.error('Assignment error:', error);
-        throw new Error('Failed to assign document to client/folder');
-      }
-      
-      console.log('Document assigned successfully to:', updateData);
-    } else {
-      throw new Error('No client selected for document assignment');
-    }
-
-    return documentData;
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -267,13 +205,6 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     const completedFiles = uploadedFiles.filter(f => f.status === 'completed');
     if (completedFiles.length === 0) {
       toast.error('No successfully processed files to confirm.');
-      return;
-    }
-
-    // Must have at least a client selected
-    const finalClientId = currentClientId || selectedClientId;
-    if (!finalClientId) {
-      toast.error('Please select a client for the documents.');
       return;
     }
     
@@ -307,142 +238,66 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }
   };
 
-  const getCurrentContextInfo = () => {
-    if (currentClientId && currentFolderId) {
-      const client = clients.find(c => c.id === currentClientId);
-      const folder = folders.find(f => f.id === currentFolderId);
-      return `${client?.name || 'Current Client'} → ${folder?.name || 'Current Folder'}`;
-    } else if (currentClientId) {
-      const client = clients.find(c => c.id === currentClientId);
-      return `${client?.name || 'Current Client'}`;
-    }
-    return null;
-  };
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-auto">
-        <DialogHeader>
-          <DialogTitle>Upload Documents</DialogTitle>
-        </DialogHeader>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-2xl max-h-[80vh] overflow-auto">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold">Upload Documents</h2>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
 
-        <div className="space-y-6">
-          {/* Show current context if available */}
-          {getCurrentContextInfo() && (
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-800">
-                Documents will be uploaded to: <span className="font-medium">{getCurrentContextInfo()}</span>
-              </p>
+          {/* Client Selection */}
+          <div className="space-y-4 mb-6">
+            <div>
+              <Label htmlFor="client-select">Client (Optional)</Label>
+              <Select 
+                value={currentClientId} 
+                onValueChange={setCurrentClientId}
+                disabled={isLoadingClients}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={isLoadingClients ? "Loading clients..." : "Select a client"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No Client (General Upload)</SelectItem>
+                  {clients.map(client => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
 
-          {/* Only show client/folder selection if no current context */}
-          {!currentClientId && (
-            <>
-              {/* Client Selection */}
-              <div className="space-y-2">
-                <Label>Assign to Client *</Label>
-                <div className="flex space-x-2">
-                  <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select a client..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients.map(client => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowNewClientInput(true)}
-                  >
-                    + New Client
-                  </Button>
-                </div>
-
-                {showNewClientInput && (
-                  <div className="flex space-x-2 mt-2">
-                    <Input
-                      value={newClientName}
-                      onChange={(e) => setNewClientName(e.target.value)}
-                      placeholder="Client name"
-                      className="flex-1"
-                    />
-                    <Button onClick={handleCreateClient} size="sm">
-                      Create
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setShowNewClientInput(false);
-                        setNewClientName('');
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                )}
+            {currentClientId && (
+              <div>
+                <Label htmlFor="folder-select">Folder (Optional)</Label>
+                <Select 
+                  value={currentFolderId} 
+                  onValueChange={setCurrentFolderId}
+                  disabled={isLoadingFolders}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={isLoadingFolders ? "Loading folders..." : "Select a folder"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Client Root (No Folder)</SelectItem>
+                    {folders.map(folder => (
+                      <SelectItem key={folder.id} value={folder.id}>
+                        {folder.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            )}
+          </div>
 
-              {/* Folder Selection */}
-              {selectedClientId && !currentFolderId && (
-                <div className="space-y-2">
-                  <Label>Document Folder (Optional)</Label>
-                  <div className="flex space-x-2">
-                    <Select value={selectedFolderId} onValueChange={setSelectedFolderId}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select a folder (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {folders.map(folder => (
-                          <SelectItem key={folder.id} value={folder.id}>
-                            {folder.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowNewFolderInput(true)}
-                      disabled={!selectedClientId}
-                    >
-                      + New Folder
-                    </Button>
-                  </div>
-
-                  {showNewFolderInput && (
-                    <div className="flex space-x-2 mt-2">
-                      <Input
-                        value={newFolderName}
-                        onChange={(e) => setNewFolderName(e.target.value)}
-                        placeholder="Folder name"
-                        className="flex-1"
-                      />
-                      <Button onClick={handleCreateFolder} size="sm">
-                        Create
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setShowNewFolderInput(false);
-                          setNewFolderName('');
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* File Drop Zone */}
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               isDragging ? 'border-primary bg-primary/5' : 'border-gray-300'
@@ -472,9 +327,8 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             />
           </div>
 
-          {/* File List */}
           {uploadedFiles.length > 0 && (
-            <div>
+            <div className="mt-6">
               <h3 className="font-medium mb-3">Processing Files</h3>
               <div className="space-y-2 max-h-40 overflow-auto">
                 {uploadedFiles.map((file) => (
@@ -506,25 +360,20 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 mt-6">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button
               onClick={handleUpload}
-              disabled={
-                uploadedFiles.length === 0 || 
-                !uploadedFiles.some(f => f.status === 'completed') || 
-                (!currentClientId && !selectedClientId)
-              }
+              disabled={uploadedFiles.length === 0 || !uploadedFiles.some(f => f.status === 'completed')}
             >
               Complete Upload ({uploadedFiles.filter(f => f.status === 'completed').length} processed)
             </Button>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

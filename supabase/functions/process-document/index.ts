@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -24,30 +23,50 @@ serve(async (req) => {
       throw new Error('User not authenticated')
     }
 
-    const { fileName, fileType, fileSize, content, title, extractedData } = await req.json()
+    const { fileName, fileType, fileSize, content, title, extractedData, clientId, folderId } = await req.json()
 
-    console.log('Processing document:', { fileName, fileType, fileSize, contentLength: content?.length, hasExtractedData: !!extractedData })
+    console.log('Processing document:', { 
+      fileName, 
+      fileType, 
+      fileSize, 
+      contentLength: content?.length, 
+      hasExtractedData: !!extractedData,
+      clientId,
+      folderId
+    })
 
-    // Insert document record
+    // Insert document record with client and folder assignments
+    const documentInsert: any = {
+      user_id: user.id,
+      title: title || fileName,
+      file_name: fileName,
+      file_type: fileType,
+      file_size: fileSize,
+      content: content
+    }
+
+    // Add client and folder IDs if provided
+    if (clientId) {
+      documentInsert.client_id = clientId
+    }
+    if (folderId) {
+      documentInsert.folder_id = folderId
+    }
+
+    console.log('Inserting document with data:', documentInsert)
+
     const { data: document, error: docError } = await supabaseClient
       .from('documents')
-      .insert({
-        user_id: user.id,
-        title: title || fileName,
-        file_name: fileName,
-        file_type: fileType,
-        file_size: fileSize,
-        content: content
-      })
+      .insert(documentInsert)
       .select()
       .single()
 
     if (docError) {
       console.error('Error inserting document:', docError)
-      throw docError
+      throw new Error(`Failed to create document: ${docError.message}`)
     }
 
-    console.log('Document inserted with ID:', document.id)
+    console.log('Document inserted successfully with ID:', document.id)
 
     // Process embeddings if we have content
     if (content && content.trim().length > 0) {
@@ -123,13 +142,12 @@ serve(async (req) => {
               
               if (!retryResponse.ok) {
                 console.error(`Retry failed for chunk ${i}: ${retryResponse.status} ${retryResponse.statusText}`)
-                continue // Skip this chunk but don't fail the entire process
+                continue
               }
               
               const retryEmbeddingData = await retryResponse.json()
               const embedding = retryEmbeddingData.data[0].embedding
 
-              // Store embedding with metadata
               const { error: embeddingError } = await supabaseClient
                 .from('document_embeddings')
                 .insert({
@@ -150,13 +168,12 @@ serve(async (req) => {
                 console.log(`Successfully stored embedding for chunk ${i + 1}`)
               }
             }
-            continue // Skip this chunk but don't fail the entire process
+            continue
           }
 
           const embeddingData = await response.json()
           const embedding = embeddingData.data[0].embedding
 
-          // Store embedding with enhanced metadata
           const { error: embeddingError } = await supabaseClient
             .from('document_embeddings')
             .insert({
@@ -184,15 +201,10 @@ serve(async (req) => {
 
         } catch (chunkError) {
           console.error(`Error processing chunk ${i}:`, chunkError)
-          // Continue with other chunks
         }
       }
 
       console.log(`Embedding generation complete. ${successfulEmbeddings}/${chunks.length} embeddings created successfully.`)
-
-      if (successfulEmbeddings === 0) {
-        console.warn('No embeddings were created successfully')
-      }
     } else {
       console.log('No content to process for embeddings')
     }
@@ -201,6 +213,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         document_id: document.id,
+        document: document,
         message: 'Document processed successfully'
       }),
       { 
@@ -234,7 +247,6 @@ function createChunksFromExtractedData(extractedData: any, fileName: string) {
     while (startIndex < pageText.length) {
       let endIndex = Math.min(startIndex + chunkSize, pageText.length);
       
-      // Try to break at sentence boundaries
       if (endIndex < pageText.length) {
         const lastPeriod = pageText.lastIndexOf('.', endIndex);
         const lastSpace = pageText.lastIndexOf(' ', endIndex);
@@ -249,7 +261,6 @@ function createChunksFromExtractedData(extractedData: any, fileName: string) {
       const chunkText = pageText.slice(startIndex, endIndex).trim();
       
       if (chunkText.length > 50) {
-        // Calculate line numbers
         const beforeChunk = pageText.slice(0, startIndex);
         const chunkLines = chunkText.split('\n').length;
         const lineStart = beforeChunk.split('\n').length;
@@ -289,7 +300,6 @@ function createSimpleChunks(text: string, fileName: string) {
   while (startIndex < text.length) {
     let endIndex = Math.min(startIndex + chunkSize, text.length);
     
-    // Try to break at sentence boundaries
     if (endIndex < text.length) {
       const lastPeriod = text.lastIndexOf('.', endIndex);
       const lastSpace = text.lastIndexOf(' ', endIndex);

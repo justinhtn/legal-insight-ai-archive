@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { processFile } from '@/utils/fileProcessor';
 
@@ -9,11 +8,13 @@ export interface DocumentUploadData {
   content: string;
   title?: string;
   extractedData?: any;
+  clientId?: string;
+  folderId?: string;
 }
 
-export const uploadDocument = async (file: File) => {
+export const uploadDocument = async (file: File, clientId?: string, folderId?: string) => {
   try {
-    console.log('Starting document upload process for:', file.name);
+    console.log('Starting document upload process for:', file.name, 'clientId:', clientId, 'folderId:', folderId);
     
     // Process the file to extract text content
     const { content, extractedData } = await processFile(file);
@@ -33,8 +34,16 @@ export const uploadDocument = async (file: File) => {
       fileSize: file.size,
       content,
       title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
-      extractedData // Pass the extracted page/line data
+      extractedData, // Pass the extracted page/line data
+      clientId: clientId || undefined,
+      folderId: folderId || undefined
     };
+
+    console.log('Calling process-document function with:', {
+      fileName: documentData.fileName,
+      clientId: documentData.clientId,
+      folderId: documentData.folderId
+    });
 
     const { data, error } = await supabase.functions.invoke('process-document', {
       body: documentData
@@ -45,7 +54,12 @@ export const uploadDocument = async (file: File) => {
       throw new Error(`Failed to process document: ${error.message}`);
     }
 
-    console.log('Document processing completed successfully');
+    if (!data?.success) {
+      console.error('Process document function returned error:', data);
+      throw new Error(data?.error || 'Unknown error processing document');
+    }
+
+    console.log('Document processing completed successfully:', data);
     return data;
   } catch (error) {
     console.error('Error in uploadDocument:', error);

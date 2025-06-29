@@ -1,31 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Client, Folder as FolderType, getClients, getFolders, createFolder, createClient } from '@/services/clientService';
+import { Client, getClients, createClient, createFolder } from '@/services/clientService';
 import { useToast } from '@/hooks/use-toast';
-import FinderHeader from './finder/FinderHeader';
-import ClientInfoPanel from './finder/ClientInfoPanel';
-import FileListView from './finder/FileListView';
-import FileIconView from './finder/FileIconView';
-import SidebarPanel from './finder/SidebarPanel';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-
-interface NavigationPath {
-  id: string;
-  name: string;
-  type: 'root' | 'client' | 'folder';
-}
-
-interface FileItem {
-  id: string;
-  name: string;
-  type: 'folder' | 'file';
-  size?: number;
-  modified: string;
-  client_name?: string;
-}
+import ClientSidebar from './explorer/ClientSidebar';
+import ClientContentPanel from './explorer/ClientContentPanel';
 
 interface FileExplorerProps {
   onUpload: () => void;
@@ -33,21 +15,10 @@ interface FileExplorerProps {
 }
 
 const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearch }) => {
-  const [currentPath, setCurrentPath] = useState<NavigationPath[]>([
-    { id: 'root', name: 'All Clients', type: 'root' }
-  ]);
-  const [pathHistory, setPathHistory] = useState<NavigationPath[][]>([
-    [{ id: 'root', name: 'All Clients', type: 'root' }]
-  ]);
-  const [historyIndex, setHistoryIndex] = useState(0);
-  const [items, setItems] = useState<FileItem[]>([]);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'list' | 'icon' | 'column'>('list');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [currentClient, setCurrentClient] = useState<Client | null>(null);
-  const [allFolders, setAllFolders] = useState<FolderType[]>([]);
-  const [currentFolderId, setCurrentFolderId] = useState<string>('');
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -60,217 +31,61 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
   });
   const { toast } = useToast();
 
-  const currentLocation = currentPath[currentPath.length - 1];
-  const canGoBack = historyIndex > 0;
-  const canGoForward = historyIndex < pathHistory.length - 1;
-  const isInClient = currentLocation.type === 'client' || currentLocation.type === 'folder';
-
   useEffect(() => {
-    loadCurrentItems();
-  }, [currentPath]);
+    loadClients();
+  }, []);
 
-  useEffect(() => {
-    if (currentLocation.type === 'client') {
-      loadClientAndFolders(currentLocation.id);
-      setCurrentFolderId('');
-    } else if (currentLocation.type === 'folder') {
-      // Load client for the current folder
-      const clientPath = currentPath.find(p => p.type === 'client');
-      if (clientPath) {
-        loadClientAndFolders(clientPath.id);
-        setCurrentFolderId(currentLocation.id);
-      }
-    } else {
-      setCurrentClient(null);
-      setAllFolders([]);
-      setCurrentFolderId('');
-    }
-  }, [currentLocation]);
-
-  const loadClientAndFolders = async (clientId: string) => {
+  const loadClients = async () => {
+    setIsLoadingClients(true);
     try {
-      const clients = await getClients();
-      const client = clients.find(c => c.id === clientId);
-      if (client) {
-        setCurrentClient(client);
-        const folders = await getFolders(clientId);
-        setAllFolders(folders);
-      }
+      const clientsData = await getClients();
+      setClients(clientsData);
+      
+      // If no client is selected but we have clients, don't auto-select
+      // Let user choose explicitly
     } catch (error) {
-      console.error('Error loading client and folders:', error);
-    }
-  };
-
-  const loadCurrentItems = async () => {
-    setIsLoading(true);
-    try {
-      if (currentLocation.type === 'root') {
-        // Load all clients
-        const clients = await getClients();
-        const clientItems: FileItem[] = clients.map(client => ({
-          id: client.id,
-          name: client.name,
-          type: 'folder' as const,
-          modified: client.updated_at
-        }));
-        setItems(clientItems);
-      } else if (currentLocation.type === 'client') {
-        // Load root-level folders for this client (parent_folder_id is null)
-        const folders = await getFolders(currentLocation.id, null);
-        const folderItems: FileItem[] = folders.map(folder => ({
-          id: folder.id,
-          name: folder.name,
-          type: 'folder' as const,
-          modified: folder.updated_at
-        }));
-
-        // Load documents in client root (no folder assigned)
-        const { data: documents } = await supabase
-          .from('documents')
-          .select('*')
-          .eq('client_id', currentLocation.id)
-          .is('folder_id', null);
-
-        const documentItems: FileItem[] = (documents || []).map(doc => ({
-          id: doc.id,
-          name: doc.file_name,
-          type: 'file' as const,
-          size: doc.file_size,
-          modified: doc.updated_at
-        }));
-
-        setItems([...folderItems, ...documentItems]);
-      } else if (currentLocation.type === 'folder') {
-        // Load subfolders and documents in this folder
-        const folders = await getFolders(currentClient?.id || '', currentLocation.id);
-        const folderItems: FileItem[] = folders.map(folder => ({
-          id: folder.id,
-          name: folder.name,
-          type: 'folder' as const,
-          modified: folder.updated_at
-        }));
-
-        const { data: documents } = await supabase
-          .from('documents')
-          .select('*')
-          .eq('folder_id', currentLocation.id);
-
-        const documentItems: FileItem[] = (documents || []).map(doc => ({
-          id: doc.id,
-          name: doc.file_name,
-          type: 'file' as const,
-          size: doc.file_size,
-          modified: doc.updated_at
-        }));
-
-        setItems([...folderItems, ...documentItems]);
-      }
-    } catch (error) {
-      console.error('Error loading items:', error);
+      console.error('Error loading clients:', error);
       toast({
         title: "Error",
-        description: "Failed to load folder contents",
+        description: "Failed to load clients",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsLoadingClients(false);
     }
   };
 
-  const navigateTo = (newPath: NavigationPath[]) => {
-    const newHistory = pathHistory.slice(0, historyIndex + 1);
-    newHistory.push(newPath);
-    setPathHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-    setCurrentPath(newPath);
-    setSelectedItems([]);
-  };
-
-  const handleBack = () => {
-    if (canGoBack) {
-      setHistoryIndex(historyIndex - 1);
-      setCurrentPath(pathHistory[historyIndex - 1]);
-      setSelectedItems([]);
+  const handleClientSelect = (clientId: string) => {
+    const client = clients.find(c => c.id === clientId);
+    if (client) {
+      setSelectedClient(client);
+      setSelectedFolderId(null); // Reset folder selection when switching clients
     }
   };
 
-  const handleForward = () => {
-    if (canGoForward) {
-      setHistoryIndex(historyIndex + 1);
-      setCurrentPath(pathHistory[historyIndex + 1]);
-      setSelectedItems([]);
-    }
-  };
-
-  const handleItemClick = (item: FileItem) => {
-    if (selectedItems.includes(item.id)) {
-      setSelectedItems(selectedItems.filter(id => id !== item.id));
-    } else {
-      setSelectedItems([item.id]);
-    }
-  };
-
-  const handleItemDoubleClick = (item: FileItem) => {
-    if (item.type === 'folder') {
-      let newPath: NavigationPath[];
-      
-      if (currentLocation.type === 'root') {
-        // Navigating from root to client
-        newPath = [...currentPath, {
-          id: item.id,
-          name: item.name,
-          type: 'client' as const
-        }];
-      } else {
-        // Navigating into a folder
-        newPath = [...currentPath, {
-          id: item.id,
-          name: item.name,
-          type: 'folder' as const
-        }];
-      }
-      
-      navigateTo(newPath);
-    }
+  const handleFolderSelect = (folderId: string | null) => {
+    setSelectedFolderId(folderId);
   };
 
   const handleCreateFolder = async () => {
-    if (!newFolderName.trim()) return;
+    if (!newFolderName.trim() || !selectedClient) {
+      toast({
+        title: "Error",
+        description: "Please enter a folder name and select a client",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
-      // Fix: Use null instead of undefined for parent folder ID
-      const parentFolderId = currentLocation.type === 'folder' ? currentLocation.id : null;
-      const clientId = currentClient?.id || (currentLocation.type === 'client' ? currentLocation.id : '');
-      
-      if (!clientId) {
-        toast({
-          title: "Error",
-          description: "No client selected for folder creation",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log('Creating folder with:', {
-        clientId,
-        parentFolderId,
-        name: newFolderName.trim()
-      });
-
       await createFolder({
-        client_id: clientId,
-        parent_folder_id: parentFolderId, // This will be null for root folders
+        client_id: selectedClient.id,
+        parent_folder_id: null,
         name: newFolderName.trim()
       });
 
       setNewFolderName('');
       setShowNewFolderDialog(false);
-      
-      // Refresh current view
-      await loadCurrentItems();
-      if (currentClient) {
-        await loadClientAndFolders(currentClient.id);
-      }
       
       toast({
         title: "Success",
@@ -287,10 +102,21 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
   };
 
   const handleCreateClient = async () => {
-    if (!newClientData.name.trim()) return;
+    if (!newClientData.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a client name",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
-      await createClient(newClientData);
+      const newClient = await createClient(newClientData);
+      setClients(prev => [...prev, newClient]);
+      setSelectedClient(newClient);
+      setSelectedFolderId(null);
+      
       setNewClientData({
         name: '',
         email: '',
@@ -299,9 +125,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
         matter_type: ''
       });
       setShowNewClientDialog(false);
-      
-      // Refresh the items list
-      await loadCurrentItems();
       
       toast({
         title: "Success",
@@ -317,112 +140,51 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     }
   };
 
-  const handleUpload = () => {
+  const handleUploadWithContext = () => {
+    // Pass current context to the upload modal
     onUpload();
   };
 
-  const getBreadcrumbPath = () => {
-    return currentPath.map(p => p.name);
-  };
-
-  const renderMainContent = () => {
-    if (currentLocation.type === 'root') {
-      return (
-        <div className="flex-1 flex flex-col">
-          {viewMode === 'list' ? (
-            <FileListView
-              items={items}
-              selectedItems={selectedItems}
-              onItemClick={handleItemClick}
-              onItemDoubleClick={handleItemDoubleClick}
-            />
-          ) : (
-            <FileIconView
-              items={items}
-              selectedItems={selectedItems}
-              onItemClick={handleItemClick}
-              onItemDoubleClick={handleItemDoubleClick}
-            />
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex-1 flex">
-        <SidebarPanel
-          clientName={currentClient?.name || ''}
-          folders={allFolders.filter(f => !f.parent_folder_id).map(f => ({ id: f.id, name: f.name, type: 'folder' as const }))}
-          selectedFolderId={currentFolderId}
-          onFolderClick={(folderId) => {
-            const folder = allFolders.find(f => f.id === folderId);
-            if (folder && currentClient) {
-              const newPath = [
-                { id: 'root', name: 'All Clients', type: 'root' as const },
-                { id: currentClient.id, name: currentClient.name, type: 'client' as const },
-                { id: folder.id, name: folder.name, type: 'folder' as const }
-              ];
-              navigateTo(newPath);
-            }
-          }}
-          onNewFolder={() => setShowNewFolderDialog(true)}
-        />
-        <div className="flex-1 flex flex-col">
-          {currentClient && currentLocation.type === 'client' && (
-            <div className="p-4">
-              <ClientInfoPanel
-                client={currentClient}
-                onClientUpdated={setCurrentClient}
-              />
-            </div>
-          )}
-          <div className="flex-1 overflow-hidden">
-            {viewMode === 'list' ? (
-              <FileListView
-                items={items}
-                selectedItems={selectedItems}
-                onItemClick={handleItemClick}
-                onItemDoubleClick={handleItemDoubleClick}
-              />
-            ) : (
-              <FileIconView
-                items={items}
-                selectedItems={selectedItems}
-                onItemClick={handleItemClick}
-                onItemDoubleClick={handleItemDoubleClick}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-    );
+  const handleClientUpdated = (updatedClient: Client) => {
+    setSelectedClient(updatedClient);
+    setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      <FinderHeader
-        canGoBack={canGoBack}
-        canGoForward={canGoForward}
-        onBack={handleBack}
-        onForward={handleForward}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onNewFolder={currentLocation.type === 'root' ? 
-          () => setShowNewClientDialog(true) : 
-          () => setShowNewFolderDialog(true)
-        }
-        onUpload={handleUpload}
-        currentPath={getBreadcrumbPath()}
+    <div className="h-full flex bg-white">
+      <ClientSidebar
+        clients={clients}
+        selectedClientId={selectedClient?.id}
+        onClientSelect={handleClientSelect}
+        onNewClient={() => setShowNewClientDialog(true)}
+        isLoading={isLoadingClients}
       />
 
-      {isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-gray-500">Loading...</div>
-        </div>
+      {selectedClient ? (
+        <ClientContentPanel
+          client={selectedClient}
+          selectedFolderId={selectedFolderId}
+          onFolderSelect={handleFolderSelect}
+          onNewFolder={() => setShowNewFolderDialog(true)}
+          onUpload={handleUploadWithContext}
+          onClientUpdated={handleClientUpdated}
+        />
       ) : (
-        renderMainContent()
+        <div className="flex-1 flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Welcome to Your Legal Archive
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Select a client from the sidebar to view their documents and folders
+            </p>
+            {clients.length === 0 && !isLoadingClients && (
+              <Button onClick={() => setShowNewClientDialog(true)}>
+                Create Your First Client
+              </Button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* New Folder Dialog */}

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Upload, Search, FolderOpen, FileText, Moon, Sun, Home, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -67,7 +66,10 @@ const Index = () => {
       title: "Documents uploaded",
       description: `${files.length} document${files.length !== 1 ? 's' : ''} uploaded and processed successfully`,
     });
-    // The FileExplorer will refresh automatically when files are uploaded
+    // Refresh clients data in case new documents were added
+    if (user) {
+      loadClients();
+    }
   };
 
   const handleAuthChange = () => {
