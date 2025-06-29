@@ -26,6 +26,8 @@ serve(async (req) => {
 
     const { fileName, fileType, fileSize, content, title } = await req.json()
 
+    console.log('Processing document:', { fileName, fileType, fileSize, contentLength: content?.length })
+
     // Insert document record
     const { data: document, error: docError } = await supabaseClient
       .from('documents')
@@ -40,22 +42,53 @@ serve(async (req) => {
       .select()
       .single()
 
-    if (docError) throw docError
+    if (docError) {
+      console.error('Error inserting document:', docError)
+      throw docError
+    }
+
+    console.log('Document inserted with ID:', document.id)
 
     // Only process embeddings if we have actual text content
-    // Skip embedding generation for placeholder content
-    if (content && !content.includes('requires server-side processing') && !content.includes('requires specialized processing')) {
+    if (content && content.trim().length > 0) {
+      // Check for placeholder content and skip if found
+      const isPlaceholderContent = content.includes('requires server-side processing') || 
+                                   content.includes('requires specialized processing')
+      
+      if (isPlaceholderContent) {
+        console.log('Skipping embedding generation for placeholder content')
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            document_id: document.id,
+            message: 'Document uploaded successfully (embeddings skipped for placeholder content)'
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        )
+      }
+
       // Split content into chunks for embedding
-      const chunks = splitIntoChunks(content, 1000) // 1000 character chunks
+      const chunks = splitIntoChunks(content, 1000)
+      console.log(`Split content into ${chunks.length} chunks`)
 
       // Generate embeddings for each chunk
       const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
       if (!openaiApiKey) {
-        console.log('OpenAI API key not configured, skipping embeddings generation')
-      } else {
-        for (let i = 0; i < chunks.length; i++) {
-          const chunk = chunks[i]
-          
+        console.error('OpenAI API key not found in environment variables')
+        throw new Error('OpenAI API key not configured')
+      }
+
+      console.log('Starting embedding generation...')
+      let successfulEmbeddings = 0
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i]
+        console.log(`Processing chunk ${i + 1}/${chunks.length}`)
+        
+        try {
           const response = await fetch('https://api.openai.com/v1/embeddings', {
             method: 'POST',
             headers: {
@@ -69,7 +102,51 @@ serve(async (req) => {
           })
 
           if (!response.ok) {
-            console.error(`OpenAI API error: ${response.statusText}`)
+            const errorText = await response.text()
+            console.error(`OpenAI API error for chunk ${i}: ${response.status} ${response.statusText} - ${errorText}`)
+            
+            // If it's a rate limit error, wait and retry once
+            if (response.status === 429) {
+              console.log('Rate limit hit, waiting 2 seconds before retry...')
+              await new Promise(resolve => setTimeout(resolve, 2000))
+              
+              const retryResponse = await fetch('https://api.openai.com/v1/embeddings', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${openaiApiKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: 'text-embedding-3-small',
+                  input: chunk,
+                }),
+              })
+              
+              if (!retryResponse.ok) {
+                console.error(`Retry failed for chunk ${i}: ${retryResponse.status} ${retryResponse.statusText}`)
+                continue // Skip this chunk but don't fail the entire process
+              }
+              
+              const retryEmbeddingData = await retryResponse.json()
+              const embedding = retryEmbeddingData.data[0].embedding
+
+              // Store embedding in database
+              const { error: embeddingError } = await supabaseClient
+                .from('document_embeddings')
+                .insert({
+                  document_id: document.id,
+                  chunk_index: i,
+                  content: chunk,
+                  embedding: embedding
+                })
+
+              if (embeddingError) {
+                console.error('Error storing embedding for chunk', i, ':', embeddingError)
+              } else {
+                successfulEmbeddings++
+                console.log(`Successfully stored embedding for chunk ${i + 1}`)
+              }
+            }
             continue // Skip this chunk but don't fail the entire process
           }
 
@@ -87,18 +164,37 @@ serve(async (req) => {
             })
 
           if (embeddingError) {
-            console.error('Error storing embedding:', embeddingError)
-            // Continue with other chunks
+            console.error('Error storing embedding for chunk', i, ':', embeddingError)
+          } else {
+            successfulEmbeddings++
+            console.log(`Successfully stored embedding for chunk ${i + 1}`)
           }
+
+          // Small delay between requests to avoid rate limiting
+          if (i < chunks.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+          }
+
+        } catch (chunkError) {
+          console.error(`Error processing chunk ${i}:`, chunkError)
+          // Continue with other chunks
         }
       }
+
+      console.log(`Embedding generation complete. ${successfulEmbeddings}/${chunks.length} embeddings created successfully.`)
+
+      if (successfulEmbeddings === 0) {
+        console.warn('No embeddings were created successfully')
+      }
+    } else {
+      console.log('No content to process for embeddings')
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         document_id: document.id,
-        message: 'Document uploaded successfully'
+        message: 'Document processed successfully'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
