@@ -101,9 +101,9 @@ const AuthButton: React.FC<AuthButtonProps> = ({ user, onAuthChange }) => {
       </Button>
 
       {showAuthForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
-          <div className="min-h-screen px-4 py-8 flex items-center justify-center">
-            <Card className="w-full max-w-md bg-white dark:bg-gray-900 my-8">
+        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-md my-8">
+            <Card className="w-full bg-white dark:bg-gray-900">
               <CardHeader>
                 <CardTitle className="text-center">
                   {isSignUp ? 'Create Account' : 'Sign In'}
