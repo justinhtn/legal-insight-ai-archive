@@ -1,10 +1,23 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Bot, Copy, ExternalLink } from "lucide-react";
 import { SearchResult } from "@/services/searchService";
 import { useToast } from "@/hooks/use-toast";
+
+interface SearchResult {
+  document_id: string;
+  document_title: string;
+  document_file_name: string;
+  content: string;
+  similarity: number;
+  chunk_index: number;
+  page_number?: number;
+  line_start?: number;
+  line_end?: number;
+  client?: string;
+  matter?: string;
+}
 
 interface SearchResultsProps {
   results: SearchResult[];
@@ -147,8 +160,31 @@ const SearchResults = ({ results, query, isLoading, aiResponse, message }: Searc
                         <Badge variant="outline" className="text-xs">
                           {Math.round(result.similarity * 100)}% match
                         </Badge>
-                        <span>Chunk {result.chunk_index + 1}</span>
+                        {result.page_number && (
+                          <span>Page {result.page_number}</span>
+                        )}
+                        {result.line_start && result.line_end && (
+                          <span>Lines {result.line_start}-{result.line_end}</span>
+                        )}
+                        {!result.page_number && (
+                          <span>Chunk {result.chunk_index + 1}</span>
+                        )}
                       </div>
+                      {/* Client and Matter Info */}
+                      {(result.client || result.matter) && (
+                        <div className="flex items-center space-x-4 text-xs text-gray-500 mb-2">
+                          {result.client && (
+                            <span className="bg-gray-100 px-2 py-1 rounded">
+                              Client: {result.client}
+                            </span>
+                          )}
+                          {result.matter && (
+                            <span className="bg-gray-100 px-2 py-1 rounded">
+                              Matter: {result.matter}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -180,13 +216,15 @@ const SearchResults = ({ results, query, isLoading, aiResponse, message }: Searc
                       <ExternalLink className="h-3 w-3 mr-1" />
                       View Document
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-600 hover:text-gray-800"
-                    >
-                      Go to Section
-                    </Button>
+                    {result.page_number && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-600 hover:text-gray-800"
+                      >
+                        Go to Page {result.page_number}
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}

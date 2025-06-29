@@ -67,7 +67,7 @@ serve(async (req) => {
     const embeddingData = await embeddingResponse.json()
     const queryEmbedding = embeddingData.data[0].embedding
 
-    // Search for similar embeddings
+    // Search for similar embeddings with enhanced metadata
     console.log('Fetching document embeddings from database...')
     const { data: embeddings, error: embeddingsError } = await supabaseClient
       .from('document_embeddings')
@@ -116,18 +116,26 @@ serve(async (req) => {
 
     console.log(`Found ${results.length} document chunks for RAG analysis`)
 
-    // Prepare context for OpenAI
+    // Prepare enhanced context for OpenAI with metadata
     const documentContext = results.map((result, index) => {
+      const metadata = result.metadata || {};
+      const pageInfo = result.page_number ? `Page ${result.page_number}` : 'Unknown page';
+      const lineInfo = result.line_start && result.line_end ? 
+        `Lines ${result.line_start}-${result.line_end}` : 
+        `Chunk ${result.chunk_index}`;
+      
       return `Document ${index + 1}:
 Title: ${result.documents.title}
 File: ${result.documents.file_name}
-Chunk: ${result.chunk_index}
+${pageInfo} | ${lineInfo}
+Client: ${metadata.client || 'Unknown'}
+Matter: ${metadata.matter || 'Unknown'}
 Similarity: ${Math.round(result.similarity * 100)}%
-Content: ${result.content}
----`
-    }).join('\n\n')
+Content: "${result.content}"
+---`;
+    }).join('\n\n');
 
-    // Generate RAG response using OpenAI
+    // Generate enhanced RAG response using OpenAI
     console.log('Generating RAG response with OpenAI...')
     const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -145,13 +153,14 @@ Content: ${result.content}
 IMPORTANT INSTRUCTIONS:
 - Synthesize information naturally across documents, don't just list facts
 - Use professional legal language appropriate for an attorney
-- When citing information, reference the specific document title and chunk
-- If documents contain conflicting information, note this
-- Be specific about which documents contain which information
+- When citing information, reference the specific document title, page number, and lines
+- If documents contain conflicting information, note this clearly
+- Be specific about which client's documents contain which information
 - Structure your response clearly with main points and supporting details
+- When referencing content, use exact quotes with proper citations
 - If no relevant information is found, say so clearly
 
-Document excerpts are provided below with their titles, filenames, and similarity scores.`
+Document excerpts are provided below with their titles, page numbers, line numbers, client information, and similarity scores.`
           },
           {
             role: 'user',
@@ -160,7 +169,7 @@ Document excerpts are provided below with their titles, filenames, and similarit
 Document Excerpts:
 ${documentContext}
 
-Please provide a comprehensive answer based on these documents.`
+Please provide a comprehensive answer based on these documents. Include specific citations with page numbers and document names for each key point.`
           }
         ],
         temperature: 0.3,
@@ -177,18 +186,26 @@ Please provide a comprehensive answer based on these documents.`
     const chatData = await chatResponse.json()
     const aiResponse = chatData.choices[0].message.content
 
-    // Return both AI response and source documents
+    // Return enhanced response with detailed source documents
     const sourceDocuments = results
-      .filter(result => result.similarity > 0.2) // Only include reasonably relevant sources
-      .slice(0, 10) // Limit to top 10 sources
-      .map(result => ({
-        document_id: result.documents.id,
-        document_title: result.documents.title,
-        document_file_name: result.documents.file_name,
-        content: result.content,
-        similarity: result.similarity,
-        chunk_index: result.chunk_index
-      }))
+      .filter(result => result.similarity > 0.2)
+      .slice(0, 10)
+      .map(result => {
+        const metadata = result.metadata || {};
+        return {
+          document_id: result.documents.id,
+          document_title: result.documents.title,
+          document_file_name: result.documents.file_name,
+          content: result.content,
+          similarity: result.similarity,
+          chunk_index: result.chunk_index,
+          page_number: result.page_number,
+          line_start: result.line_start,
+          line_end: result.line_end,
+          client: metadata.client,
+          matter: metadata.matter
+        };
+      });
 
     console.log(`Generated RAG response with ${sourceDocuments.length} source documents`)
 

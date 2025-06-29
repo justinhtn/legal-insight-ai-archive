@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { processFile } from '@/utils/fileProcessor';
 
 export interface DocumentUploadData {
   fileName: string;
@@ -7,18 +8,49 @@ export interface DocumentUploadData {
   fileSize: number;
   content: string;
   title?: string;
+  extractedData?: any;
 }
 
-export const uploadDocument = async (documentData: DocumentUploadData) => {
-  const { data, error } = await supabase.functions.invoke('process-document', {
-    body: documentData
-  });
+export const uploadDocument = async (file: File) => {
+  try {
+    console.log('Starting document upload process for:', file.name);
+    
+    // Process the file to extract text content
+    const { content, extractedData } = await processFile(file);
+    
+    if (!content || content.trim().length === 0) {
+      throw new Error('No text content could be extracted from the file');
+    }
 
-  if (error) {
-    throw new Error(`Failed to process document: ${error.message}`);
+    console.log(`Extracted ${content.length} characters from ${file.name}`);
+    if (extractedData) {
+      console.log(`PDF processing: ${extractedData.totalPages} pages, ${extractedData.pages?.length} page objects`);
+    }
+
+    const documentData: DocumentUploadData = {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      content,
+      title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
+      extractedData // Pass the extracted page/line data
+    };
+
+    const { data, error } = await supabase.functions.invoke('process-document', {
+      body: documentData
+    });
+
+    if (error) {
+      console.error('Supabase function error:', error);
+      throw new Error(`Failed to process document: ${error.message}`);
+    }
+
+    console.log('Document processing completed successfully');
+    return data;
+  } catch (error) {
+    console.error('Error in uploadDocument:', error);
+    throw error;
   }
-
-  return data;
 };
 
 export const getDocuments = async () => {

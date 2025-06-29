@@ -17,6 +17,10 @@ export type Database = {
           document_id: string
           embedding: Json | null
           id: string
+          line_end: number | null
+          line_start: number | null
+          metadata: Json | null
+          page_number: number | null
         }
         Insert: {
           chunk_index: number
@@ -25,6 +29,10 @@ export type Database = {
           document_id: string
           embedding?: Json | null
           id?: string
+          line_end?: number | null
+          line_start?: number | null
+          metadata?: Json | null
+          page_number?: number | null
         }
         Update: {
           chunk_index?: number
@@ -33,6 +41,10 @@ export type Database = {
           document_id?: string
           embedding?: Json | null
           id?: string
+          line_end?: number | null
+          line_start?: number | null
+          metadata?: Json | null
+          page_number?: number | null
         }
         Relationships: [
           {
