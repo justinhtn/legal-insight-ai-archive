@@ -1,23 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Bot, Copy, ExternalLink } from "lucide-react";
+import { FileText, Copy, ExternalLink } from "lucide-react";
 import { SearchResult } from "@/services/searchService";
 import { useToast } from "@/hooks/use-toast";
-
-interface SearchResult {
-  document_id: string;
-  document_title: string;
-  document_file_name: string;
-  content: string;
-  similarity: number;
-  chunk_index: number;
-  page_number?: number;
-  line_start?: number;
-  line_end?: number;
-  client?: string;
-  matter?: string;
-}
 
 interface SearchResultsProps {
   results: SearchResult[];

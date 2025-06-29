@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { uploadDocument } from '@/services/documentService';
-import { extractTextFromFile } from '@/utils/fileProcessor';
 
 interface UploadedFile {
   file: File;
@@ -68,9 +67,6 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUpload, isOpen, onClo
         )
       );
 
-      // Extract text content from file
-      const content = await extractTextFromFile(uploadFile.file);
-      
       setUploadedFiles(prev => 
         prev.map(f => 
           f.id === uploadFile.id 
@@ -79,14 +75,8 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUpload, isOpen, onClo
         )
       );
 
-      // Upload to backend
-      await uploadDocument({
-        fileName: uploadFile.file.name,
-        fileType: uploadFile.file.type,
-        fileSize: uploadFile.file.size,
-        content: content,
-        title: uploadFile.file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
-      });
+      // Upload to backend using the File object directly
+      await uploadDocument(uploadFile.file);
 
       // Mark as completed
       setUploadedFiles(prev => 
