@@ -24,7 +24,7 @@ serve(async (req) => {
       throw new Error('User not authenticated')
     }
 
-    const { query } = await req.json()
+    const { query, client_id } = await req.json()
 
     if (!query || query.trim().length === 0) {
       return new Response(
@@ -37,6 +37,9 @@ serve(async (req) => {
     }
 
     console.log('Processing search query:', query)
+    if (client_id) {
+      console.log('Filtering by client_id:', client_id)
+    }
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiApiKey) {
@@ -67,9 +70,9 @@ serve(async (req) => {
     const embeddingData = await embeddingResponse.json()
     const queryEmbedding = embeddingData.data[0].embedding
 
-    // Search for similar embeddings with enhanced metadata
+    // Search for similar embeddings with enhanced metadata and optional client filtering
     console.log('Fetching document embeddings from database...')
-    const { data: embeddings, error: embeddingsError } = await supabaseClient
+    let embeddingsQuery = supabaseClient
       .from('document_embeddings')
       .select(`
         *,
@@ -77,10 +80,18 @@ serve(async (req) => {
           id,
           title,
           file_name,
-          user_id
+          user_id,
+          client_id
         )
       `)
       .eq('documents.user_id', user.id)
+
+    // Add client filter if specified
+    if (client_id) {
+      embeddingsQuery = embeddingsQuery.eq('documents.client_id', client_id)
+    }
+
+    const { data: embeddings, error: embeddingsError } = await embeddingsQuery
 
     if (embeddingsError) {
       console.error('Database error:', embeddingsError)
@@ -89,11 +100,15 @@ serve(async (req) => {
 
     if (!embeddings || embeddings.length === 0) {
       console.log('No embeddings found in database')
+      const message = client_id 
+        ? "I couldn't find any documents for this client. Please upload and process documents first."
+        : "I couldn't find any documents to search through. Please upload and process documents first."
+      
       return new Response(
         JSON.stringify({ 
           results: [],
-          ai_response: "I couldn't find any documents to search through. Please upload and process documents first.",
-          message: 'No documents found'
+          ai_response: message,
+          message: client_id ? 'No documents found for this client' : 'No documents found'
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -207,13 +222,17 @@ Please provide a comprehensive answer based on these documents. Include specific
         };
       });
 
+    const contextMessage = client_id 
+      ? `AI analysis based on ${sourceDocuments.length} relevant document sections from selected client`
+      : `AI analysis based on ${sourceDocuments.length} relevant document sections across all clients`
+
     console.log(`Generated RAG response with ${sourceDocuments.length} source documents`)
 
     return new Response(
       JSON.stringify({ 
         results: sourceDocuments,
         ai_response: aiResponse,
-        message: `AI analysis based on ${sourceDocuments.length} relevant document sections`
+        message: contextMessage
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

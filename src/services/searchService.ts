@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SearchResult {
@@ -111,9 +110,12 @@ function consolidateSearchResults(chunks: SearchResult[]): ConsolidatedDocument[
   }));
 }
 
-export const searchDocuments = async (query: string): Promise<SearchResponse> => {
+export const searchDocuments = async (query: string, clientId?: string): Promise<SearchResponse> => {
   const { data, error } = await supabase.functions.invoke('search-documents', {
-    body: { query }
+    body: { 
+      query,
+      client_id: clientId || null
+    }
   });
 
   if (error) {

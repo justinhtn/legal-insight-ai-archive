@@ -9,6 +9,45 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      clients: {
+        Row: {
+          archived: boolean | null
+          case_number: string | null
+          created_at: string
+          email: string | null
+          id: string
+          matter_type: string | null
+          name: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean | null
+          case_number?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          matter_type?: string | null
+          name: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archived?: boolean | null
+          case_number?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          matter_type?: string | null
+          name?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       document_embeddings: {
         Row: {
           chunk_index: number
@@ -58,39 +97,105 @@ export type Database = {
       }
       documents: {
         Row: {
+          client_id: string | null
           content: string | null
           created_at: string
           file_name: string
           file_size: number
           file_type: string
+          folder_id: string | null
           id: string
           title: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          client_id?: string | null
           content?: string | null
           created_at?: string
           file_name: string
           file_size: number
           file_type: string
+          folder_id?: string | null
           id?: string
           title: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          client_id?: string | null
           content?: string | null
           created_at?: string
           file_name?: string
           file_size?: number
           file_type?: string
+          folder_id?: string | null
           id?: string
           title?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folders: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          name: string
+          parent_folder_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          name: string
+          parent_folder_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          parent_folder_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "folders_parent_folder_id_fkey"
+            columns: ["parent_folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
