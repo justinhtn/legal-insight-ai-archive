@@ -42,58 +42,63 @@ serve(async (req) => {
 
     if (docError) throw docError
 
-    // Split content into chunks for embedding
-    const chunks = splitIntoChunks(content, 1000) // 1000 character chunks
+    // Only process embeddings if we have actual text content
+    // Skip embedding generation for placeholder content
+    if (content && !content.includes('requires server-side processing') && !content.includes('requires specialized processing')) {
+      // Split content into chunks for embedding
+      const chunks = splitIntoChunks(content, 1000) // 1000 character chunks
 
-    // Generate embeddings for each chunk
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured')
-    }
+      // Generate embeddings for each chunk
+      const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+      if (!openaiApiKey) {
+        console.log('OpenAI API key not configured, skipping embeddings generation')
+      } else {
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i]
+          
+          const response = await fetch('https://api.openai.com/v1/embeddings', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openaiApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'text-embedding-3-small',
+              input: chunk,
+            }),
+          })
 
-    const embeddings = []
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i]
-      
-      const response = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'text-embedding-3-small',
-          input: chunk,
-        }),
-      })
+          if (!response.ok) {
+            console.error(`OpenAI API error: ${response.statusText}`)
+            continue // Skip this chunk but don't fail the entire process
+          }
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`)
+          const embeddingData = await response.json()
+          const embedding = embeddingData.data[0].embedding
+
+          // Store embedding in database
+          const { error: embeddingError } = await supabaseClient
+            .from('document_embeddings')
+            .insert({
+              document_id: document.id,
+              chunk_index: i,
+              content: chunk,
+              embedding: embedding
+            })
+
+          if (embeddingError) {
+            console.error('Error storing embedding:', embeddingError)
+            // Continue with other chunks
+          }
+        }
       }
-
-      const embeddingData = await response.json()
-      const embedding = embeddingData.data[0].embedding
-
-      // Store embedding in database
-      const { error: embeddingError } = await supabaseClient
-        .from('document_embeddings')
-        .insert({
-          document_id: document.id,
-          chunk_index: i,
-          content: chunk,
-          embedding: embedding
-        })
-
-      if (embeddingError) throw embeddingError
-
-      embeddings.push({ chunk_index: i, content: chunk })
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         document_id: document.id,
-        chunks_processed: embeddings.length 
+        message: 'Document uploaded successfully'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
