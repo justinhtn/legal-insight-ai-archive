@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { Upload, Search, FolderOpen, FileText, Moon, Sun } from "lucide-react";
+import { Upload, Search, FolderOpen, FileText, Moon, Sun, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +35,12 @@ const Index = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const resetToHome = () => {
+    setHasSearched(false);
+    setSearchResults([]);
+    setSearchQuery("");
+  };
 
   const handleDocumentUpload = (files: File[]) => {
     console.log('Uploaded files:', files);
@@ -98,7 +103,12 @@ const Index = () => {
           <SidebarContent className="p-4">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Legal Archive</h2>
+                <h2 
+                  className="text-lg font-semibold cursor-pointer hover:text-primary transition-colors"
+                  onClick={resetToHome}
+                >
+                  Legal Archive
+                </h2>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -109,6 +119,23 @@ const Index = () => {
               </div>
               
               <div className="space-y-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={resetToHome}
+                >
+                  <Home className="mr-2 h-4 w-4" />
+                  Home
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start text-sm"
+                  onClick={() => setIsUploadOpen(true)}
+                  disabled={!user}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Documents
+                </Button>
                 <Button variant="outline" className="w-full justify-start">
                   <FolderOpen className="mr-2 h-4 w-4" />
                   All Clients
@@ -161,11 +188,31 @@ const Index = () => {
           <main className="flex-1 p-6">
             <div className="max-w-7xl mx-auto space-y-6">
               {hasSearched ? (
-                <SearchResults 
-                  results={searchResults} 
-                  query={searchQuery} 
-                  isLoading={isSearching} 
-                />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Button 
+                      variant="outline" 
+                      onClick={resetToHome}
+                      className="flex items-center"
+                    >
+                      <Home className="mr-2 h-4 w-4" />
+                      Back to Dashboard
+                    </Button>
+                    <Button 
+                      onClick={() => setIsUploadOpen(true)}
+                      disabled={!user}
+                      title={!user ? "Please sign in to upload documents" : ""}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload Documents
+                    </Button>
+                  </div>
+                  <SearchResults 
+                    results={searchResults} 
+                    query={searchQuery} 
+                    isLoading={isSearching} 
+                  />
+                </div>
               ) : (
                 <>
                   <div className="flex items-center justify-between">
