@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Upload, Search, FolderOpen, FileText, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,12 +9,19 @@ import { useTheme } from "next-themes";
 import { supabase } from "@/integrations/supabase/client";
 import DocumentUpload from "@/components/DocumentUpload";
 import AuthButton from "@/components/AuthButton";
+import SearchResults from "@/components/SearchResults";
+import { searchDocuments, SearchResult } from "@/services/searchService";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
 
   useEffect(() => {
     // Get initial user
@@ -31,12 +39,56 @@ const Index = () => {
 
   const handleDocumentUpload = (files: File[]) => {
     console.log('Uploaded files:', files);
-    // Here you would typically process and store the files
-    // For now, we'll just log them to the console
+    toast({
+      title: "Documents uploaded",
+      description: `${files.length} document${files.length !== 1 ? 's' : ''} uploaded successfully`,
+    });
   };
 
   const handleAuthChange = () => {
     // This will trigger the useEffect to update the user state
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to search documents",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!searchQuery.trim()) {
+      return;
+    }
+
+    setIsSearching(true);
+    setHasSearched(true);
+
+    try {
+      const results = await searchDocuments(searchQuery.trim());
+      setSearchResults(results);
+      
+      if (results.length === 0) {
+        toast({
+          title: "No results found",
+          description: "Try adjusting your search query or upload more documents.",
+        });
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      toast({
+        title: "Search failed",
+        description: error instanceof Error ? error.message : "An error occurred while searching",
+        variant: "destructive",
+      });
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   return (
@@ -90,7 +142,7 @@ const Index = () => {
             <div className="flex h-14 items-center px-4 lg:px-6">
               <SidebarTrigger />
               <div className="ml-auto flex items-center space-x-4">
-                <div className="relative flex-1 max-w-lg">
+                <form onSubmit={handleSearch} className="relative flex-1 max-w-lg">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="search"
@@ -98,8 +150,9 @@ const Index = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-8 w-full"
+                    disabled={isSearching}
                   />
-                </div>
+                </form>
                 <AuthButton user={user} onAuthChange={handleAuthChange} />
               </div>
             </div>
@@ -107,105 +160,115 @@ const Index = () => {
 
           <main className="flex-1 p-6">
             <div className="max-w-7xl mx-auto space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight">Legal Document Archive</h1>
-                  <p className="text-muted-foreground">
-                    AI-powered search across all your legal documents and pleadings
-                  </p>
-                </div>
-                <Button 
-                  onClick={() => setIsUploadOpen(true)}
-                  disabled={!user}
-                  title={!user ? "Please sign in to upload documents" : ""}
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Documents
-                </Button>
-              </div>
-
-              {!user && (
-                <Card className="border-yellow-200 bg-yellow-50">
-                  <CardContent className="pt-6">
-                    <p className="text-yellow-800">
-                      Please sign in to upload and manage your legal documents. Your documents are securely stored and only accessible to you.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <FileText className="mr-2 h-5 w-5" />
-                      Total Documents
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">1,247</div>
-                    <p className="text-xs text-muted-foreground">
-                      Across 23 active cases
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Search className="mr-2 h-5 w-5" />
-                      AI Searches Today
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">47</div>
-                    <p className="text-xs text-muted-foreground">
-                      Average response time: 2.3s
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <FolderOpen className="mr-2 h-5 w-5" />
-                      Active Matters
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">23</div>
-                    <p className="text-xs text-muted-foreground">
-                      8 require immediate attention
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent AI Searches</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="border-l-4 border-primary pl-4">
-                      <p className="font-medium">
-                        "What are the statute of limitations arguments in breach of contract cases?"
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Found 12 relevant passages across 5 documents
+              {hasSearched ? (
+                <SearchResults 
+                  results={searchResults} 
+                  query={searchQuery} 
+                  isLoading={isSearching} 
+                />
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-3xl font-bold tracking-tight">Legal Document Archive</h1>
+                      <p className="text-muted-foreground">
+                        AI-powered search across all your legal documents and pleadings
                       </p>
                     </div>
-                    <div className="border-l-4 border-muted pl-4">
-                      <p className="font-medium">
-                        "Show me all discovery motions filed in the past 6 months"
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Found 8 documents with filing dates and case references
-                      </p>
-                    </div>
+                    <Button 
+                      onClick={() => setIsUploadOpen(true)}
+                      disabled={!user}
+                      title={!user ? "Please sign in to upload documents" : ""}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload Documents
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
+
+                  {!user && (
+                    <Card className="border-yellow-200 bg-yellow-50">
+                      <CardContent className="pt-6">
+                        <p className="text-yellow-800">
+                          Please sign in to upload and manage your legal documents. Your documents are securely stored and only accessible to you.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <FileText className="mr-2 h-5 w-5" />
+                          Total Documents
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">1,247</div>
+                        <p className="text-xs text-muted-foreground">
+                          Across 23 active cases
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <Search className="mr-2 h-5 w-5" />
+                          AI Searches Today
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">47</div>
+                        <p className="text-xs text-muted-foreground">
+                          Average response time: 2.3s
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <FolderOpen className="mr-2 h-5 w-5" />
+                          Active Matters
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">23</div>
+                        <p className="text-xs text-muted-foreground">
+                          8 require immediate attention
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent AI Searches</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="border-l-4 border-primary pl-4">
+                          <p className="font-medium">
+                            "What are the statute of limitations arguments in breach of contract cases?"
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Found 12 relevant passages across 5 documents
+                          </p>
+                        </div>
+                        <div className="border-l-4 border-muted pl-4">
+                          <p className="font-medium">
+                            "Show me all discovery motions filed in the past 6 months"
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Found 8 documents with filing dates and case references
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </div>
           </main>
         </div>
