@@ -200,23 +200,23 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const uploadDocumentWithAssignment = async (file: File) => {
     const documentData = await uploadDocument(file);
     
-    // Get the final client and folder IDs
+    // Get the final client and folder IDs - prioritize current context
     const finalClientId = currentClientId || selectedClientId;
     const finalFolderId = currentFolderId || selectedFolderId;
     
     console.log('Assigning document:', {
       documentId: documentData.id,
       clientId: finalClientId,
-      folderId: finalFolderId
+      folderId: finalFolderId,
+      currentContext: { currentClientId, currentFolderId },
+      selectedContext: { selectedClientId, selectedFolderId }
     });
     
-    // Only update if we have valid IDs to assign
-    if (finalClientId || finalFolderId) {
-      const updateData: any = {};
-      
-      if (finalClientId) {
-        updateData.client_id = finalClientId;
-      }
+    // Always assign at least to a client, folder is optional
+    if (finalClientId) {
+      const updateData: any = {
+        client_id: finalClientId
+      };
       
       if (finalFolderId) {
         updateData.folder_id = finalFolderId;
@@ -232,7 +232,9 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         throw new Error('Failed to assign document to client/folder');
       }
       
-      console.log('Document assigned successfully');
+      console.log('Document assigned successfully to:', updateData);
+    } else {
+      throw new Error('No client selected for document assignment');
     }
 
     return documentData;
@@ -265,8 +267,9 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       return;
     }
 
-    // If we have current context, don't require manual selection
-    if (!currentClientId && !selectedClientId) {
+    // Must have at least a client selected
+    const finalClientId = currentClientId || selectedClientId;
+    if (!finalClientId) {
       toast.error('Please select a client for the documents.');
       return;
     }
@@ -301,6 +304,18 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }
   };
 
+  const getCurrentContextInfo = () => {
+    if (currentClientId && currentFolderId) {
+      const client = clients.find(c => c.id === currentClientId);
+      const folder = folders.find(f => f.id === currentFolderId);
+      return `${client?.name || 'Current Client'} → ${folder?.name || 'Current Folder'}`;
+    } else if (currentClientId) {
+      const client = clients.find(c => c.id === currentClientId);
+      return `${client?.name || 'Current Client'}`;
+    }
+    return null;
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-auto">
@@ -310,17 +325,15 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
         <div className="space-y-6">
           {/* Show current context if available */}
-          {(currentClientId || currentFolderId) && (
+          {getCurrentContextInfo() && (
             <div className="p-3 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-800">
-                Documents will be uploaded to: 
-                {currentClientId && <span className="font-medium"> Current Client</span>}
-                {currentFolderId && <span className="font-medium"> → Current Folder</span>}
+                Documents will be uploaded to: <span className="font-medium">{getCurrentContextInfo()}</span>
               </p>
             </div>
           )}
 
-          {/* Only show client selection if no current context */}
+          {/* Only show client/folder selection if no current context */}
           {!currentClientId && (
             <>
               {/* Client Selection */}
@@ -375,7 +388,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               {/* Folder Selection */}
               {selectedClientId && !currentFolderId && (
                 <div className="space-y-2">
-                  <Label>Document Type / Folder</Label>
+                  <Label>Document Folder (Optional)</Label>
                   <div className="flex space-x-2">
                     <Select value={selectedFolderId} onValueChange={setSelectedFolderId}>
                       <SelectTrigger className="flex-1">
@@ -497,7 +510,11 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             </Button>
             <Button
               onClick={handleUpload}
-              disabled={uploadedFiles.length === 0 || !uploadedFiles.some(f => f.status === 'completed') || (!currentClientId && !selectedClientId)}
+              disabled={
+                uploadedFiles.length === 0 || 
+                !uploadedFiles.some(f => f.status === 'completed') || 
+                (!currentClientId && !selectedClientId)
+              }
             >
               Complete Upload ({uploadedFiles.filter(f => f.status === 'completed').length} processed)
             </Button>

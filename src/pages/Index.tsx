@@ -65,12 +65,9 @@ const Index = () => {
     console.log('Uploaded files:', files);
     toast({
       title: "Documents uploaded",
-      description: `${files.length} document${files.length !== 1 ? 's' : ''} uploaded successfully`,
+      description: `${files.length} document${files.length !== 1 ? 's' : ''} uploaded and processed successfully`,
     });
-    // Refresh the current view if needed
-    if (viewMode === 'explorer') {
-      // The FileExplorer will refresh automatically
-    }
+    // The FileExplorer will refresh automatically when files are uploaded
   };
 
   const handleAuthChange = () => {
