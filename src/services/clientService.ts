@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Client {
@@ -18,7 +17,7 @@ export interface Folder {
   id: string;
   user_id: string;
   client_id: string;
-  parent_folder_id?: string;
+  parent_folder_id?: string | null; // Fix: Allow null explicitly
   name: string;
   created_at: string;
   updated_at: string;
@@ -103,7 +102,8 @@ const createDefaultFolders = async (clientId: string): Promise<void> => {
   const folderInserts = defaultFolders.map(name => ({
     user_id: user.id,
     client_id: clientId,
-    name
+    name,
+    parent_folder_id: null // Fix: Use null instead of undefined
   }));
 
   const { error } = await supabase
@@ -115,17 +115,18 @@ const createDefaultFolders = async (clientId: string): Promise<void> => {
   }
 };
 
-export const getFolders = async (clientId: string, parentFolderId?: string): Promise<Folder[]> => {
+export const getFolders = async (clientId: string, parentFolderId?: string | null): Promise<Folder[]> => {
   let query = supabase
     .from('folders')
     .select('*')
     .eq('client_id', clientId)
     .order('name');
 
-  if (parentFolderId) {
-    query = query.eq('parent_folder_id', parentFolderId);
-  } else {
+  // Fix: Handle null vs undefined properly
+  if (parentFolderId === null || parentFolderId === undefined) {
     query = query.is('parent_folder_id', null);
+  } else {
+    query = query.eq('parent_folder_id', parentFolderId);
   }
 
   const { data, error } = await query;
@@ -141,16 +142,20 @@ export const createFolder = async (folderData: Omit<Folder, 'id' | 'user_id' | '
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
+  console.log('Creating folder with data:', folderData);
+
   const { data, error } = await supabase
     .from('folders')
     .insert({
       ...folderData,
-      user_id: user.id
+      user_id: user.id,
+      parent_folder_id: folderData.parent_folder_id || null // Fix: Ensure null instead of undefined
     })
     .select()
     .single();
 
   if (error) {
+    console.error('Database error creating folder:', error);
     throw new Error(`Failed to create folder: ${error.message}`);
   }
 

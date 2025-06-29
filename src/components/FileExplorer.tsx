@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Client, Folder as FolderType, getClients, getFolders, createFolder, createClient } from '@/services/clientService';
@@ -116,8 +115,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
         }));
         setItems(clientItems);
       } else if (currentLocation.type === 'client') {
-        // Load root-level folders for this client
-        const folders = await getFolders(currentLocation.id, undefined);
+        // Load root-level folders for this client (parent_folder_id is null)
+        const folders = await getFolders(currentLocation.id, null);
         const folderItems: FileItem[] = folders.map(folder => ({
           id: folder.id,
           name: folder.name,
@@ -239,7 +238,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     if (!newFolderName.trim()) return;
 
     try {
-      const parentFolderId = currentLocation.type === 'folder' ? currentLocation.id : undefined;
+      // Fix: Use null instead of undefined for parent folder ID
+      const parentFolderId = currentLocation.type === 'folder' ? currentLocation.id : null;
       const clientId = currentClient?.id || (currentLocation.type === 'client' ? currentLocation.id : '');
       
       if (!clientId) {
@@ -251,9 +251,15 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
         return;
       }
 
+      console.log('Creating folder with:', {
+        clientId,
+        parentFolderId,
+        name: newFolderName.trim()
+      });
+
       await createFolder({
         client_id: clientId,
-        parent_folder_id: parentFolderId,
+        parent_folder_id: parentFolderId, // This will be null for root folders
         name: newFolderName.trim()
       });
 
@@ -274,7 +280,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
       console.error('Error creating folder:', error);
       toast({
         title: "Error",
-        description: "Failed to create folder",
+        description: error instanceof Error ? error.message : "Failed to create folder",
         variant: "destructive",
       });
     }

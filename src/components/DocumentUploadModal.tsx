@@ -107,7 +107,8 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     try {
       const newFolder = await createFolder({
         client_id: selectedClientId,
-        name: newFolderName.trim()
+        name: newFolderName.trim(),
+        parent_folder_id: null // Fix: Use null instead of undefined
       });
       setFolders([...folders, newFolder]);
       setSelectedFolderId(newFolder.id);
@@ -207,7 +208,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     console.log('Assigning document:', {
       documentId: documentData.id,
       clientId: finalClientId,
-      folderId: finalFolderId,
+      folderId: finalFolderId || null, // Fix: Use null instead of undefined
       currentContext: { currentClientId, currentFolderId },
       selectedContext: { selectedClientId, selectedFolderId }
     });
@@ -218,9 +219,11 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         client_id: finalClientId
       };
       
+      // Fix: Only add folder_id if we have a valid folder ID, otherwise let it be null
       if (finalFolderId) {
         updateData.folder_id = finalFolderId;
       }
+      // If no folder is selected, folder_id will remain null (not undefined)
 
       const { error } = await supabase
         .from('documents')
