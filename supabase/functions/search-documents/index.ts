@@ -38,14 +38,14 @@ serve(async (req) => {
 
     console.log('Processing search query:', query)
 
-    // Generate embedding for the search query
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiApiKey) {
       console.error('OpenAI API key not found in environment variables')
       throw new Error('OpenAI API key not configured')
     }
 
-    console.log('OpenAI API key found, generating embedding for search query...')
+    // Generate embedding for the search query
+    console.log('Generating embedding for search query...')
     const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
@@ -66,7 +66,6 @@ serve(async (req) => {
 
     const embeddingData = await embeddingResponse.json()
     const queryEmbedding = embeddingData.data[0].embedding
-    console.log('Generated embedding for search query successfully')
 
     // Search for similar embeddings
     console.log('Fetching document embeddings from database...')
@@ -88,14 +87,13 @@ serve(async (req) => {
       throw new Error(`Failed to fetch embeddings: ${embeddingsError.message}`)
     }
 
-    console.log(`Found ${embeddings?.length || 0} embeddings to search through`)
-
     if (!embeddings || embeddings.length === 0) {
       console.log('No embeddings found in database')
       return new Response(
         JSON.stringify({ 
           results: [],
-          message: 'No documents with embeddings found. Please upload and process documents first.'
+          ai_response: "I couldn't find any documents to search through. Please upload and process documents first.",
+          message: 'No documents found'
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -104,88 +102,101 @@ serve(async (req) => {
       )
     }
 
-    // Calculate cosine similarity for each embedding
+    // Calculate similarities and get top results
     const results = embeddings
       .map(embedding => {
         const similarity = cosineSimilarity(queryEmbedding, embedding.embedding)
-        console.log(`Similarity for chunk ${embedding.chunk_index}: ${similarity}`)
         return {
           ...embedding,
           similarity
         }
       })
-      .filter(result => result.similarity > 0.3) // Lowered threshold from 0.7 to 0.3
-      .sort((a, b) => b.similarity - a.similarity) // Sort by similarity desc
-      .slice(0, 10) // Limit to top 10 results
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 20) // Get top 20 for RAG context
 
-    console.log(`Found ${results.length} results above similarity threshold`)
+    console.log(`Found ${results.length} document chunks for RAG analysis`)
 
-    // If no results found with document search, use OpenAI chat completion with context
-    if (results.length === 0) {
-      console.log('No similar documents found, falling back to OpenAI chat completion')
-      
-      // Get all document content for context
-      const allContent = embeddings.map(e => e.content).join('\n\n')
-      
-      const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a helpful legal document assistant. You have access to the user's uploaded documents. Here is the content from their documents:\n\n${allContent}\n\nAnswer the user's question based on this content. If the content doesn't contain relevant information, say so clearly.`
-            },
-            {
-              role: 'user',
-              content: query
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 1000
-        }),
-      })
+    // Prepare context for OpenAI
+    const documentContext = results.map((result, index) => {
+      return `Document ${index + 1}:
+Title: ${result.documents.title}
+File: ${result.documents.file_name}
+Chunk: ${result.chunk_index}
+Similarity: ${Math.round(result.similarity * 100)}%
+Content: ${result.content}
+---`
+    }).join('\n\n')
 
-      if (!chatResponse.ok) {
-        const errorText = await chatResponse.text()
-        console.error(`OpenAI Chat API error: ${chatResponse.status} ${chatResponse.statusText} - ${errorText}`)
-        throw new Error(`OpenAI Chat API error: ${chatResponse.statusText}`)
-      }
+    // Generate RAG response using OpenAI
+    console.log('Generating RAG response with OpenAI...')
+    const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a senior attorney's AI assistant. Using the provided document excerpts, provide a comprehensive answer to the user's query.
 
-      const chatData = await chatResponse.json()
-      const aiResponse = chatData.choices[0].message.content
+IMPORTANT INSTRUCTIONS:
+- Synthesize information naturally across documents, don't just list facts
+- Use professional legal language appropriate for an attorney
+- When citing information, reference the specific document title and chunk
+- If documents contain conflicting information, note this
+- Be specific about which documents contain which information
+- Structure your response clearly with main points and supporting details
+- If no relevant information is found, say so clearly
 
-      console.log('Generated AI response using RAG fallback')
+Document excerpts are provided below with their titles, filenames, and similarity scores.`
+          },
+          {
+            role: 'user',
+            content: `Query: ${query}
 
-      return new Response(
-        JSON.stringify({ 
-          results: [],
-          ai_response: aiResponse,
-          message: 'No direct document matches found. Here\'s what I can tell you based on your documents:'
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        },
-      )
+Document Excerpts:
+${documentContext}
+
+Please provide a comprehensive answer based on these documents.`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 1500
+      }),
+    })
+
+    if (!chatResponse.ok) {
+      const errorText = await chatResponse.text()
+      console.error(`OpenAI Chat API error: ${chatResponse.status} ${chatResponse.statusText} - ${errorText}`)
+      throw new Error(`OpenAI Chat API error: ${chatResponse.statusText}`)
     }
 
-    console.log(`Returning ${results.length} search results`)
+    const chatData = await chatResponse.json()
+    const aiResponse = chatData.choices[0].message.content
+
+    // Return both AI response and source documents
+    const sourceDocuments = results
+      .filter(result => result.similarity > 0.2) // Only include reasonably relevant sources
+      .slice(0, 10) // Limit to top 10 sources
+      .map(result => ({
+        document_id: result.documents.id,
+        document_title: result.documents.title,
+        document_file_name: result.documents.file_name,
+        content: result.content,
+        similarity: result.similarity,
+        chunk_index: result.chunk_index
+      }))
+
+    console.log(`Generated RAG response with ${sourceDocuments.length} source documents`)
 
     return new Response(
       JSON.stringify({ 
-        results: results.map(result => ({
-          document_id: result.documents.id,
-          document_title: result.documents.title,
-          document_file_name: result.documents.file_name,
-          content: result.content,
-          similarity: result.similarity,
-          chunk_index: result.chunk_index
-        }))
+        results: sourceDocuments,
+        ai_response: aiResponse,
+        message: `AI analysis based on ${sourceDocuments.length} relevant document sections`
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -194,7 +205,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error searching documents:', error)
+    console.error('Error in search-documents function:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
