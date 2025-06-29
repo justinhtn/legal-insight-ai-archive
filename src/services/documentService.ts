@@ -8,11 +8,11 @@ export interface DocumentUploadData {
   content: string;
   title?: string;
   extractedData?: any;
-  clientId?: string;
-  folderId?: string;
+  clientId?: string | null;
+  folderId?: string | null;
 }
 
-export const uploadDocument = async (file: File, clientId?: string, folderId?: string) => {
+export const uploadDocument = async (file: File, clientId?: string | null, folderId?: string | null) => {
   try {
     console.log('Starting document upload process for:', file.name, 'clientId:', clientId, 'folderId:', folderId);
     
@@ -35,8 +35,8 @@ export const uploadDocument = async (file: File, clientId?: string, folderId?: s
       content,
       title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
       extractedData, // Pass the extracted page/line data
-      clientId: clientId || undefined,
-      folderId: folderId || undefined
+      clientId: clientId || null,
+      folderId: folderId || null
     };
 
     console.log('Calling process-document function with:', {

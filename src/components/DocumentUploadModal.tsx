@@ -34,8 +34,8 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [currentClientId, setCurrentClientId] = useState<string>(selectedClientId || '');
-  const [currentFolderId, setCurrentFolderId] = useState<string>(selectedFolderId || '');
+  const [currentClientId, setCurrentClientId] = useState<string>(selectedClientId || 'none');
+  const [currentFolderId, setCurrentFolderId] = useState<string>(selectedFolderId || 'none');
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [isLoadingFolders, setIsLoadingFolders] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,12 +54,15 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   }, [isOpen, selectedClientId, selectedFolderId]);
 
   React.useEffect(() => {
-    if (currentClientId) {
+    if (currentClientId && currentClientId !== 'none') {
       loadFolders(currentClientId);
       // Reset folder selection when client changes (unless it's the initial load)
       if (currentClientId !== selectedClientId) {
-        setCurrentFolderId('');
+        setCurrentFolderId('none');
       }
+    } else {
+      setFolders([]);
+      setCurrentFolderId('none');
     }
   }, [currentClientId]);
 
@@ -68,6 +71,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     try {
       const clientsData = await getClients();
       setClients(clientsData);
+      console.log('Loaded clients:', clientsData.length);
     } catch (error) {
       console.error('Error loading clients:', error);
       toast.error('Failed to load clients');
@@ -77,10 +81,16 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   };
 
   const loadFolders = async (clientId: string) => {
+    if (!clientId || clientId === 'none') {
+      setFolders([]);
+      return;
+    }
+    
     setIsLoadingFolders(true);
     try {
       const foldersData = await getFolders(clientId);
       setFolders(foldersData);
+      console.log('Loaded folders for client', clientId, ':', foldersData.length);
     } catch (error) {
       console.error('Error loading folders:', error);
       toast.error('Failed to load folders');
@@ -124,7 +134,9 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
   const processFile = async (uploadFile: UploadedFile) => {
     try {
-      console.log('Processing file:', uploadFile.file.name, 'with clientId:', currentClientId, 'folderId:', currentFolderId);
+      console.log('Processing file:', uploadFile.file.name);
+      console.log('Current client ID:', currentClientId);
+      console.log('Current folder ID:', currentFolderId);
       
       // Update status to processing
       setUploadedFiles(prev => 
@@ -143,9 +155,9 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         )
       );
 
-      // Upload to backend with client and folder IDs
-      const clientIdToUse = currentClientId || null;
-      const folderIdToUse = currentFolderId || null;
+      // Convert special values to null for API
+      const clientIdToUse = currentClientId === 'none' ? null : currentClientId;
+      const folderIdToUse = currentFolderId === 'none' ? null : currentFolderId;
       
       console.log('Uploading with assignments:', { clientIdToUse, folderIdToUse });
       
@@ -264,7 +276,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                   <SelectValue placeholder={isLoadingClients ? "Loading clients..." : "Select a client"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Client (General Upload)</SelectItem>
+                  <SelectItem value="none">No Client (General Upload)</SelectItem>
                   {clients.map(client => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
@@ -274,7 +286,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               </Select>
             </div>
 
-            {currentClientId && (
+            {currentClientId && currentClientId !== 'none' && (
               <div>
                 <Label htmlFor="folder-select">Folder (Optional)</Label>
                 <Select 
@@ -286,7 +298,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                     <SelectValue placeholder={isLoadingFolders ? "Loading folders..." : "Select a folder"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Client Root (No Folder)</SelectItem>
+                    <SelectItem value="none">Client Root (No Folder)</SelectItem>
                     {folders.map(folder => (
                       <SelectItem key={folder.id} value={folder.id}>
                         {folder.name}
