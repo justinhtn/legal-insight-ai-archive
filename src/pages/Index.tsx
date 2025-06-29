@@ -1,22 +1,42 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, Search, FolderOpen, FileText, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useTheme } from "next-themes";
+import { supabase } from "@/integrations/supabase/client";
 import DocumentUpload from "@/components/DocumentUpload";
+import AuthButton from "@/components/AuthButton";
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    // Get initial user
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleDocumentUpload = (files: File[]) => {
     console.log('Uploaded files:', files);
     // Here you would typically process and store the files
     // For now, we'll just log them to the console
+  };
+
+  const handleAuthChange = () => {
+    // This will trigger the useEffect to update the user state
   };
 
   return (
@@ -80,6 +100,7 @@ const Index = () => {
                     className="pl-8 w-full"
                   />
                 </div>
+                <AuthButton user={user} onAuthChange={handleAuthChange} />
               </div>
             </div>
           </header>
@@ -93,11 +114,25 @@ const Index = () => {
                     AI-powered search across all your legal documents and pleadings
                   </p>
                 </div>
-                <Button onClick={() => setIsUploadOpen(true)}>
+                <Button 
+                  onClick={() => setIsUploadOpen(true)}
+                  disabled={!user}
+                  title={!user ? "Please sign in to upload documents" : ""}
+                >
                   <Upload className="mr-2 h-4 w-4" />
                   Upload Documents
                 </Button>
               </div>
+
+              {!user && (
+                <Card className="border-yellow-200 bg-yellow-50">
+                  <CardContent className="pt-6">
+                    <p className="text-yellow-800">
+                      Please sign in to upload and manage your legal documents. Your documents are securely stored and only accessible to you.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <Card>
