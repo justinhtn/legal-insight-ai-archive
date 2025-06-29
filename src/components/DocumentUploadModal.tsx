@@ -198,20 +198,23 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   };
 
   const uploadDocumentWithAssignment = async (file: File) => {
-    // Create a FormData-like approach but adapted for our uploadDocument function
     const documentData = await uploadDocument(file);
     
-    // Update the document with client and folder assignment
-    if (selectedClientId || selectedFolderId) {
+    // Automatically assign to current client and folder if available
+    const clientId = currentClientId || selectedClientId;
+    const folderId = currentFolderId || selectedFolderId;
+    
+    if (clientId || folderId) {
       const { error } = await supabase
         .from('documents')
         .update({
-          client_id: selectedClientId || null,
-          folder_id: selectedFolderId || null
+          client_id: clientId || null,
+          folder_id: folderId || null
         })
         .eq('id', documentData.id);
 
       if (error) {
+        console.error('Assignment error:', error);
         throw new Error('Failed to assign document to client/folder');
       }
     }
@@ -240,14 +243,15 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   };
 
   const handleUpload = () => {
-    if (!selectedClientId) {
-      toast.error('Please select a client for the documents.');
-      return;
-    }
-
     const completedFiles = uploadedFiles.filter(f => f.status === 'completed');
     if (completedFiles.length === 0) {
       toast.error('No successfully processed files to confirm.');
+      return;
+    }
+
+    // If we have current context, don't require manual selection
+    if (!currentClientId && !selectedClientId) {
+      toast.error('Please select a client for the documents.');
       return;
     }
     
@@ -289,105 +293,121 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Client Selection */}
-          <div className="space-y-2">
-            <Label>Assign to Client *</Label>
-            <div className="flex space-x-2">
-              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Select a client..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                onClick={() => setShowNewClientInput(true)}
-              >
-                + New Client
-              </Button>
+          {/* Show current context if available */}
+          {(currentClientId || currentFolderId) && (
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                Documents will be uploaded to: 
+                {currentClientId && <span className="font-medium"> Current Client</span>}
+                {currentFolderId && <span className="font-medium"> → Current Folder</span>}
+              </p>
             </div>
+          )}
 
-            {showNewClientInput && (
-              <div className="flex space-x-2 mt-2">
-                <Input
-                  value={newClientName}
-                  onChange={(e) => setNewClientName(e.target.value)}
-                  placeholder="Client name"
-                  className="flex-1"
-                />
-                <Button onClick={handleCreateClient} size="sm">
-                  Create
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    setShowNewClientInput(false);
-                    setNewClientName('');
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Folder Selection */}
-          {selectedClientId && (
-            <div className="space-y-2">
-              <Label>Document Type / Folder</Label>
-              <div className="flex space-x-2">
-                <Select value={selectedFolderId} onValueChange={setSelectedFolderId}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select a folder (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {folders.map(folder => (
-                      <SelectItem key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowNewFolderInput(true)}
-                  disabled={!selectedClientId}
-                >
-                  + New Folder
-                </Button>
-              </div>
-
-              {showNewFolderInput && (
-                <div className="flex space-x-2 mt-2">
-                  <Input
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    placeholder="Folder name"
-                    className="flex-1"
-                  />
-                  <Button onClick={handleCreateFolder} size="sm">
-                    Create
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setShowNewFolderInput(false);
-                      setNewFolderName('');
-                    }}
+          {/* Only show client selection if no current context */}
+          {!currentClientId && (
+            <>
+              {/* Client Selection */}
+              <div className="space-y-2">
+                <Label>Assign to Client *</Label>
+                <div className="flex space-x-2">
+                  <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select a client..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map(client => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowNewClientInput(true)}
                   >
-                    Cancel
+                    + New Client
                   </Button>
                 </div>
+
+                {showNewClientInput && (
+                  <div className="flex space-x-2 mt-2">
+                    <Input
+                      value={newClientName}
+                      onChange={(e) => setNewClientName(e.target.value)}
+                      placeholder="Client name"
+                      className="flex-1"
+                    />
+                    <Button onClick={handleCreateClient} size="sm">
+                      Create
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setShowNewClientInput(false);
+                        setNewClientName('');
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Folder Selection */}
+              {selectedClientId && !currentFolderId && (
+                <div className="space-y-2">
+                  <Label>Document Type / Folder</Label>
+                  <div className="flex space-x-2">
+                    <Select value={selectedFolderId} onValueChange={setSelectedFolderId}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select a folder (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {folders.map(folder => (
+                          <SelectItem key={folder.id} value={folder.id}>
+                            {folder.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowNewFolderInput(true)}
+                      disabled={!selectedClientId}
+                    >
+                      + New Folder
+                    </Button>
+                  </div>
+
+                  {showNewFolderInput && (
+                    <div className="flex space-x-2 mt-2">
+                      <Input
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        placeholder="Folder name"
+                        className="flex-1"
+                      />
+                      <Button onClick={handleCreateFolder} size="sm">
+                        Create
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setShowNewFolderInput(false);
+                          setNewFolderName('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
 
           {/* File Drop Zone */}
@@ -461,7 +481,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             </Button>
             <Button
               onClick={handleUpload}
-              disabled={uploadedFiles.length === 0 || !uploadedFiles.some(f => f.status === 'completed') || !selectedClientId}
+              disabled={uploadedFiles.length === 0 || !uploadedFiles.some(f => f.status === 'completed') || (!currentClientId && !selectedClientId)}
             >
               Complete Upload ({uploadedFiles.filter(f => f.status === 'completed').length} processed)
             </Button>

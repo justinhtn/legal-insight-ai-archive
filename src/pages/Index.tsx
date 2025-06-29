@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Upload, Search, FolderOpen, FileText, Moon, Sun, Home, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,13 +10,12 @@ import { supabase } from "@/integrations/supabase/client";
 import AuthButton from "@/components/AuthButton";
 import SearchResults from "@/components/SearchResults";
 import FileExplorer from "@/components/FileExplorer";
-import ClientManagement from "@/components/ClientManagement";
 import DocumentUploadModal from "@/components/DocumentUploadModal";
 import { searchDocuments, ConsolidatedDocument } from "@/services/searchService";
 import { getClients, Client } from "@/services/clientService";
 import { useToast } from "@/hooks/use-toast";
 
-type ViewMode = 'home' | 'search' | 'explorer' | 'clients';
+type ViewMode = 'home' | 'search' | 'explorer';
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -170,13 +168,6 @@ const Index = () => {
           />
         );
       
-      case 'clients':
-        return (
-          <ClientManagement 
-            onClientCreated={loadClients}
-          />
-        );
-      
       default: // home
         return (
           <>
@@ -212,28 +203,28 @@ const Index = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <FolderOpen className="mr-2 h-5 w-5" />
-                    Browse Documents
+                    Manage Files & Clients
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{clients.length}</div>
                   <p className="text-xs text-muted-foreground">
-                    Clients with organized documents
+                    Active client matters with organized documents
                   </p>
                 </CardContent>
               </Card>
 
-              <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setViewMode('clients')}>
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Users className="mr-2 h-5 w-5" />
-                    Manage Clients
+                    <FileText className="mr-2 h-5 w-5" />
+                    Total Documents
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{clients.filter(c => !c.archived).length}</div>
+                  <div className="text-2xl font-bold">247</div>
                   <p className="text-xs text-muted-foreground">
-                    Active client matters
+                    Processed and searchable
                   </p>
                 </CardContent>
               </Card>
@@ -322,16 +313,7 @@ const Index = () => {
                   disabled={!user}
                 >
                   <FolderOpen className="mr-2 h-4 w-4" />
-                  Browse Files
-                </Button>
-                <Button 
-                  variant={viewMode === 'clients' ? 'default' : 'ghost'}
-                  className="w-full justify-start text-sm"
-                  onClick={() => setViewMode('clients')}
-                  disabled={!user}
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Manage Clients
+                  Manage Files & Clients
                 </Button>
                 <Button 
                   variant="ghost" 
