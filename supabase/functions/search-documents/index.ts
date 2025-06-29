@@ -36,12 +36,16 @@ serve(async (req) => {
       )
     }
 
+    console.log('Processing search query:', query)
+
     // Generate embedding for the search query
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiApiKey) {
+      console.error('OpenAI API key not found')
       throw new Error('OpenAI API key not configured')
     }
 
+    console.log('Generating embedding for search query...')
     const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
@@ -55,15 +59,17 @@ serve(async (req) => {
     })
 
     if (!embeddingResponse.ok) {
+      const errorText = await embeddingResponse.text()
+      console.error(`OpenAI API error: ${embeddingResponse.status} ${embeddingResponse.statusText} - ${errorText}`)
       throw new Error(`OpenAI API error: ${embeddingResponse.statusText}`)
     }
 
     const embeddingData = await embeddingResponse.json()
     const queryEmbedding = embeddingData.data[0].embedding
+    console.log('Generated embedding for search query successfully')
 
     // Search for similar embeddings
-    // Since we're storing embeddings as JSONB, we'll fetch all embeddings for the user's documents
-    // and calculate similarity in JavaScript (for production, you'd want to use pgvector)
+    console.log('Fetching document embeddings from database...')
     const { data: embeddings, error: embeddingsError } = await supabaseClient
       .from('document_embeddings')
       .select(`
@@ -78,7 +84,24 @@ serve(async (req) => {
       .eq('documents.user_id', user.id)
 
     if (embeddingsError) {
+      console.error('Database error:', embeddingsError)
       throw new Error(`Failed to fetch embeddings: ${embeddingsError.message}`)
+    }
+
+    console.log(`Found ${embeddings?.length || 0} embeddings to search through`)
+
+    if (!embeddings || embeddings.length === 0) {
+      console.log('No embeddings found in database')
+      return new Response(
+        JSON.stringify({ 
+          results: [],
+          message: 'No documents with embeddings found. Please upload and process documents first.'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      )
     }
 
     // Calculate cosine similarity for each embedding
@@ -93,6 +116,8 @@ serve(async (req) => {
       .filter(result => result.similarity > 0.7) // Filter for relevant results
       .sort((a, b) => b.similarity - a.similarity) // Sort by similarity desc
       .slice(0, 10) // Limit to top 10 results
+
+    console.log(`Returning ${results.length} search results`)
 
     return new Response(
       JSON.stringify({ 
