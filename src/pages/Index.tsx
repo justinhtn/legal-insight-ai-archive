@@ -21,7 +21,7 @@ type ViewMode = 'home' | 'search' | 'explorer' | 'clients';
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [selectedClientId, setSelectedClientId] = useState<string>("all");
   const [clients, setClients] = useState<Client[]>([]);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -98,7 +98,7 @@ const Index = () => {
     setViewMode('search');
 
     try {
-      const response = await searchDocuments(searchQuery.trim(), selectedClientId || undefined);
+      const response = await searchDocuments(searchQuery.trim(), selectedClientId === "all" ? undefined : selectedClientId);
       setConsolidatedDocuments(response.consolidated_documents);
       setAiResponse(response.ai_response || "");
       setSearchMessage(response.message || "");
@@ -378,7 +378,7 @@ const Index = () => {
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="search"
-                      placeholder={`Search ${selectedClientId ? 'within client' : 'all documents'}...`}
+                      placeholder={`Search ${selectedClientId === "all" ? 'all documents' : 'within client'}...`}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-8 w-full"
@@ -391,7 +391,7 @@ const Index = () => {
                         <SelectValue placeholder="All Clients" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Clients</SelectItem>
+                        <SelectItem value="all">All Clients</SelectItem>
                         {clients.map(client => (
                           <SelectItem key={client.id} value={client.id}>
                             {client.name}
