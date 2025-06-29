@@ -41,11 +41,11 @@ serve(async (req) => {
     // Generate embedding for the search query
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiApiKey) {
-      console.error('OpenAI API key not found')
+      console.error('OpenAI API key not found in environment variables')
       throw new Error('OpenAI API key not configured')
     }
 
-    console.log('Generating embedding for search query...')
+    console.log('OpenAI API key found, generating embedding for search query...')
     const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
