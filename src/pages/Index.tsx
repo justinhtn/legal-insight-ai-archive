@@ -9,14 +9,14 @@ import { supabase } from "@/integrations/supabase/client";
 import DocumentUpload from "@/components/DocumentUpload";
 import AuthButton from "@/components/AuthButton";
 import SearchResults from "@/components/SearchResults";
-import { searchDocuments, SearchResult } from "@/services/searchService";
+import { searchDocuments, ConsolidatedDocument } from "@/services/searchService";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [consolidatedDocuments, setConsolidatedDocuments] = useState<ConsolidatedDocument[]>([]);
   const [aiResponse, setAiResponse] = useState<string>("");
   const [searchMessage, setSearchMessage] = useState<string>("");
   const [isSearching, setIsSearching] = useState(false);
@@ -40,7 +40,7 @@ const Index = () => {
 
   const resetToHome = () => {
     setHasSearched(false);
-    setSearchResults([]);
+    setConsolidatedDocuments([]);
     setSearchQuery("");
     setAiResponse("");
     setSearchMessage("");
@@ -79,11 +79,11 @@ const Index = () => {
 
     try {
       const response = await searchDocuments(searchQuery.trim());
-      setSearchResults(response.results);
+      setConsolidatedDocuments(response.consolidated_documents);
       setAiResponse(response.ai_response || "");
       setSearchMessage(response.message || "");
       
-      if (response.results.length === 0 && !response.ai_response) {
+      if (response.consolidated_documents.length === 0 && !response.ai_response) {
         toast({
           title: "No results found",
           description: "Try adjusting your search query or upload more documents.",
@@ -96,7 +96,7 @@ const Index = () => {
         description: error instanceof Error ? error.message : "An error occurred while searching",
         variant: "destructive",
       });
-      setSearchResults([]);
+      setConsolidatedDocuments([]);
       setAiResponse("");
       setSearchMessage("");
     } finally {
@@ -216,7 +216,7 @@ const Index = () => {
                     </Button>
                   </div>
                   <SearchResults 
-                    results={searchResults} 
+                    consolidated_documents={consolidatedDocuments} 
                     query={searchQuery} 
                     isLoading={isSearching}
                     aiResponse={aiResponse}
