@@ -65,7 +65,9 @@ const TabbedDocumentViewer: React.FC<TabbedDocumentViewerProps> = ({
             >
               <FileText className="h-4 w-4" />
               <span className="max-w-32 truncate">{tab.title}</span>
-              <Lightbulb className="h-3 w-3 text-yellow-500" title="Has highlights" />
+              <div title="Has highlights">
+                <Lightbulb className="h-3 w-3 text-yellow-500" />
+              </div>
             </Button>
             <Button
               variant="ghost"

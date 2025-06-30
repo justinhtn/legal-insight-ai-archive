@@ -94,7 +94,9 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-gray-600" />
             <span className="font-semibold text-gray-900">{documentTitle}</span>
-            <Lightbulb className="h-4 w-4 text-yellow-500" title="Opened with highlights" />
+            <div title="Opened with highlights">
+              <Lightbulb className="h-4 w-4 text-yellow-500" />
+            </div>
           </div>
           <Button size="sm" variant="ghost" onClick={onClose}>
             <X className="h-4 w-4" />
