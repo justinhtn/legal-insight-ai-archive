@@ -18,6 +18,7 @@ interface FilePanelProps {
   onUpload: () => void;
   isLoading?: boolean;
   onRefresh: () => void;
+  onFileClick?: (file: FileItem) => void;
 }
 
 const FilePanel: React.FC<FilePanelProps> = ({
@@ -26,7 +27,8 @@ const FilePanel: React.FC<FilePanelProps> = ({
   folderName,
   onUpload,
   isLoading = false,
-  onRefresh
+  onRefresh,
+  onFileClick
 }) => {
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B';
@@ -36,6 +38,12 @@ const FilePanel: React.FC<FilePanelProps> = ({
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
+  };
+
+  const handleFileClick = (file: FileItem) => {
+    if (onFileClick && file.type === 'file') {
+      onFileClick(file);
+    }
   };
 
   return (
@@ -93,13 +101,21 @@ const FilePanel: React.FC<FilePanelProps> = ({
               {files.map((file) => (
                 <div
                   key={file.id}
-                  className="flex items-center p-3 hover:bg-gray-50 rounded-lg border"
+                  className={`flex items-center p-3 rounded-lg border transition-colors ${
+                    file.type === 'file' 
+                      ? 'hover:bg-blue-50 cursor-pointer hover:border-blue-200' 
+                      : 'hover:bg-gray-50'
+                  }`}
+                  onClick={() => handleFileClick(file)}
                 >
                   <FileText className="h-5 w-5 text-gray-500 mr-3" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 truncate">{file.name}</p>
                     <p className="text-sm text-gray-500">
                       {file.size && formatFileSize(file.size)} • {formatDate(file.modified)}
+                      {file.type === 'file' && (
+                        <span className="ml-2 text-blue-600 text-xs">Click to open</span>
+                      )}
                     </p>
                   </div>
                 </div>

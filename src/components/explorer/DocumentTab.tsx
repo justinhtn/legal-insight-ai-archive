@@ -27,19 +27,30 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
   onClose
 }) => {
   const [currentHighlight, setCurrentHighlight] = useState(0);
-  const [showHighlights, setShowHighlights] = useState(true);
+  const [showHighlights, setShowHighlights] = useState(highlights.length > 0);
 
   useEffect(() => {
-    // Auto-fade highlights after 30 seconds
-    const timer = setTimeout(() => {
-      setShowHighlights(false);
-    }, 30000);
+    // Auto-fade highlights after 30 seconds if they exist
+    if (highlights.length > 0) {
+      const timer = setTimeout(() => {
+        setShowHighlights(false);
+      }, 30000);
 
-    return () => clearTimeout(timer);
-  }, []);
+      return () => clearTimeout(timer);
+    }
+  }, [highlights.length]);
+
+  // Scroll to first highlight on mount
+  useEffect(() => {
+    if (highlights.length > 0 && showHighlights) {
+      setTimeout(() => {
+        scrollToHighlight(0);
+      }, 100);
+    }
+  }, [highlights.length, showHighlights]);
 
   const highlightText = (text: string, highlights: Highlight[]) => {
-    if (!showHighlights) return text;
+    if (!showHighlights || highlights.length === 0) return text;
     
     let highlightedText = text;
     
@@ -47,7 +58,7 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
       const regex = new RegExp(highlight.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
       highlightedText = highlightedText.replace(
         regex,
-        `<mark id="highlight-${index}" class="bg-yellow-200 px-1 rounded transition-all duration-300">${highlight.text}</mark>`
+        `<mark id="highlight-${index}" class="bg-yellow-200 px-1 rounded transition-all duration-300 highlight-mark">${highlight.text}</mark>`
       );
     });
     
@@ -57,7 +68,19 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
   const scrollToHighlight = (index: number) => {
     const element = document.getElementById(`highlight-${index}`);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Scroll within the document content area, not the entire page
+      const scrollArea = element.closest('[data-radix-scroll-area-viewport]');
+      if (scrollArea) {
+        const elementRect = element.getBoundingClientRect();
+        const scrollAreaRect = scrollArea.getBoundingClientRect();
+        const scrollTop = scrollArea.scrollTop + elementRect.top - scrollAreaRect.top - 100;
+        
+        scrollArea.scrollTo({
+          top: scrollTop,
+          behavior: 'smooth'
+        });
+      }
+      
       setCurrentHighlight(index);
       
       // Remove previous current highlight
@@ -73,11 +96,13 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
   };
 
   const nextHighlight = () => {
+    if (highlights.length === 0) return;
     const next = (currentHighlight + 1) % highlights.length;
     scrollToHighlight(next);
   };
 
   const prevHighlight = () => {
+    if (highlights.length === 0) return;
     const prev = currentHighlight === 0 ? highlights.length - 1 : currentHighlight - 1;
     scrollToHighlight(prev);
   };
@@ -86,26 +111,47 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
     setShowHighlights(!showHighlights);
   };
 
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab' && highlights.length > 0) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          prevHighlight();
+        } else {
+          nextHighlight();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentHighlight, highlights.length]);
+
   return (
     <div className="h-full flex flex-col bg-white">
-      {/* Header */}
-      <div className="p-4 border-b bg-gray-50">
+      {/* Header - Fixed */}
+      <div className="p-4 border-b bg-gray-50 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-gray-600" />
             <span className="font-semibold text-gray-900">{documentTitle}</span>
-            <div title="Opened with highlights">
-              <Lightbulb className="h-4 w-4 text-yellow-500" />
-            </div>
+            {highlights.length > 0 && (
+              <div title="Opened with highlights">
+                <Lightbulb className="h-4 w-4 text-yellow-500" />
+              </div>
+            )}
           </div>
           <Button size="sm" variant="ghost" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
         
-        <div className="mt-2 text-sm text-gray-600">
-          Query: "{query}"
-        </div>
+        {query && (
+          <div className="mt-2 text-sm text-gray-600">
+            Query: "{query}"
+          </div>
+        )}
         
         {highlights.length > 0 && (
           <div className="flex items-center gap-2 mt-3">
@@ -126,32 +172,37 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
             >
               {showHighlights ? 'Hide' : 'Show'} Highlights
             </Button>
+            <span className="text-xs text-gray-500">
+              Tab/Shift+Tab to navigate highlights
+            </span>
           </div>
         )}
       </div>
 
-      <div className="flex-1 flex">
-        {/* Document Content */}
+      <div className="flex-1 flex min-h-0">
+        {/* Document Content - Scrollable */}
         <div className="flex-1">
-          <ScrollArea className="h-full p-6">
-            <div 
-              className="prose max-w-none whitespace-pre-wrap font-mono text-sm leading-relaxed"
-              dangerouslySetInnerHTML={{ 
-                __html: highlightText(documentContent, highlights) 
-              }}
-            />
+          <ScrollArea className="h-full">
+            <div className="p-6">
+              <div 
+                className="prose max-w-none whitespace-pre-wrap font-mono text-sm leading-relaxed"
+                dangerouslySetInnerHTML={{ 
+                  __html: highlightText(documentContent, highlights) 
+                }}
+              />
+            </div>
           </ScrollArea>
         </div>
 
-        {/* Highlights Sidebar */}
+        {/* Highlights Sidebar - Fixed */}
         {showHighlights && highlights.length > 0 && (
-          <div className="w-80 border-l bg-gray-50">
+          <div className="w-80 border-l bg-gray-50 flex-shrink-0">
             <div className="p-4 border-b">
               <h3 className="font-semibold text-gray-900">Highlights ({highlights.length})</h3>
-              <p className="text-xs text-gray-500 mt-1">Related to: "{query}"</p>
+              {query && <p className="text-xs text-gray-500 mt-1">Related to: "{query}"</p>}
             </div>
-            <ScrollArea className="h-full p-4">
-              <div className="space-y-2">
+            <ScrollArea className="h-full">
+              <div className="p-4 space-y-2">
                 {highlights.map((highlight, index) => (
                   <Card
                     key={index}

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Client, Folder, getFolders } from '@/services/clientService';
@@ -22,6 +21,7 @@ interface ClientContentPanelProps {
   onNewFolder: () => void;
   onUpload: () => void;
   onClientUpdated: (client: Client) => void;
+  onOpenDocument?: (document: any) => void;
 }
 
 const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
@@ -30,7 +30,8 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
   onFolderSelect,
   onNewFolder,
   onUpload,
-  onClientUpdated
+  onClientUpdated,
+  onOpenDocument
 }) => {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -137,6 +138,7 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
           onUpload={onUpload}
           isLoading={isLoadingFiles}
           onRefresh={refreshData}
+          onFileClick={onOpenDocument}
         />
       </div>
     </div>

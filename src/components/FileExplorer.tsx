@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import ClientSidebar from './explorer/ClientSidebar';
 import ClientContentPanel from './explorer/ClientContentPanel';
-import ClientChatPanel from './explorer/ClientChatPanel';
+import FloatingChatPanel from './explorer/FloatingChatPanel';
 import TabbedDocumentViewer from './explorer/TabbedDocumentViewer';
 
 interface DocumentTabData {
@@ -96,6 +96,36 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
       content: documentContent,
       highlights: highlights,
       query: query
+    };
+
+    setDocumentTabs(prev => [...prev, newTab]);
+    setActiveTabId(tabId);
+    setShowOverview(false);
+  };
+
+  // New function to handle opening documents from file clicks
+  const handleOpenDocument = (document: any) => {
+    // Load full document content (placeholder implementation)
+    const documentContent = `Full document content for ${document.name} would be loaded here...
+
+This is a placeholder showing where the complete document would appear. In a real implementation, this would fetch the full document from the database and display it with proper formatting.
+
+The document would show:
+- Complete text content
+- Proper formatting
+- Page breaks
+- All sections
+
+User can scroll through the entire document and see highlights when they exist from chat queries.`;
+    
+    const tabId = `${document.name}-${Date.now()}`;
+    
+    const newTab: DocumentTabData = {
+      id: tabId,
+      title: document.name,
+      content: documentContent,
+      highlights: [], // No highlights for regular document opening
+      query: '' // No query for regular document opening
     };
 
     setDocumentTabs(prev => [...prev, newTab]);
@@ -210,10 +240,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
   };
 
   return (
-    <div className="h-full flex bg-white">
+    <div className="h-full flex bg-white relative">
       <ResizablePanelGroup direction="horizontal" className="h-full">
         {/* Panel 1: Client Sidebar */}
-        <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+        <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
           <ClientSidebar
             clients={clients}
             selectedClientId={selectedClient?.id}
@@ -225,8 +255,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
 
         <ResizableHandle withHandle />
 
-        {/* Panel 2: Client Content or Tabbed Documents */}
-        <ResizablePanel defaultSize={45} minSize={30}>
+        {/* Panel 2: Client Content or Tabbed Documents - Now uses full available space */}
+        <ResizablePanel defaultSize={75} minSize={50}>
           {selectedClient ? (
             showOverview ? (
               <ClientContentPanel
@@ -236,6 +266,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
                 onNewFolder={() => setShowNewFolderDialog(true)}
                 onUpload={handleUploadWithContext}
                 onClientUpdated={handleClientUpdated}
+                onOpenDocument={handleOpenDocument}
               />
             ) : (
               <TabbedDocumentViewer
@@ -265,17 +296,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
             </div>
           )}
         </ResizablePanel>
-
-        <ResizableHandle withHandle />
-
-        {/* Panel 3: Client Chat */}
-        <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
-          <ClientChatPanel 
-            client={selectedClient} 
-            onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
-          />
-        </ResizablePanel>
       </ResizablePanelGroup>
+
+      {/* Floating Chat Panel */}
+      <FloatingChatPanel 
+        client={selectedClient} 
+        onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
+      />
 
       {/* New Folder Dialog */}
       <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
