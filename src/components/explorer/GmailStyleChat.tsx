@@ -56,7 +56,18 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
 
   // Use external messages if provided, otherwise use internal state
   const messages = externalMessages.length > 0 ? externalMessages : internalMessages;
-  const setMessages = onMessagesChange || setInternalMessages;
+  
+  // Helper function to update messages correctly based on whether external management is used
+  const updateMessages = (newMessages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+    if (onMessagesChange) {
+      // External message management
+      const finalMessages = typeof newMessages === 'function' ? newMessages(messages) : newMessages;
+      onMessagesChange(finalMessages);
+    } else {
+      // Internal message management
+      setInternalMessages(newMessages);
+    }
+  };
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -265,7 +276,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    updateMessages(prev => [...prev, userMessage]);
     const currentQuery = inputValue.trim();
     setInputValue('');
     
@@ -310,7 +321,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
         query: currentQuery,
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      updateMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
