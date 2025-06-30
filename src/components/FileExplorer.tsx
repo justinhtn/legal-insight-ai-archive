@@ -11,6 +11,16 @@ import ClientContentPanel from './explorer/ClientContentPanel';
 import GmailStyleChat from './explorer/GmailStyleChat';
 import TabbedDocumentViewer from './explorer/TabbedDocumentViewer';
 
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  sources?: any[];
+  documentCount?: number;
+  query?: string;
+}
+
 interface DocumentTabData {
   id: string;
   title: string;
@@ -44,8 +54,11 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     matter_type: ''
   });
 
-  // Chat panel state - persistent per client
-  const [chatStates, setChatStates] = useState<Record<string, { isOpen: boolean; messages: any[] }>>({});
+  // Chat panel state - persistent per client with message storage
+  const [chatStates, setChatStates] = useState<Record<string, { 
+    isOpen: boolean; 
+    messages: ChatMessage[] 
+  }>>({});
 
   // Document tabs state
   const [documentTabs, setDocumentTabs] = useState<DocumentTabData[]>([]);
@@ -56,7 +69,43 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
 
   useEffect(() => {
     loadClients();
+    loadChatStates();
   }, []);
+
+  // Load chat states from localStorage
+  const loadChatStates = () => {
+    try {
+      const savedChatStates = localStorage.getItem('chatStates');
+      if (savedChatStates) {
+        const parsed = JSON.parse(savedChatStates);
+        // Convert timestamp strings back to Date objects
+        const restoredStates: Record<string, { isOpen: boolean; messages: ChatMessage[] }> = {};
+        
+        Object.keys(parsed).forEach(clientId => {
+          restoredStates[clientId] = {
+            isOpen: false, // Always start with chat closed
+            messages: parsed[clientId].messages?.map((msg: any) => ({
+              ...msg,
+              timestamp: new Date(msg.timestamp)
+            })) || []
+          };
+        });
+        
+        setChatStates(restoredStates);
+      }
+    } catch (error) {
+      console.error('Error loading chat states:', error);
+    }
+  };
+
+  // Save chat states to localStorage
+  const saveChatStates = (states: Record<string, { isOpen: boolean; messages: ChatMessage[] }>) => {
+    try {
+      localStorage.setItem('chatStates', JSON.stringify(states));
+    } catch (error) {
+      console.error('Error saving chat states:', error);
+    }
+  };
 
   const loadClients = async () => {
     setIsLoadingClients(true);
@@ -87,10 +136,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
       
       // Initialize chat state for client if it doesn't exist
       if (!chatStates[clientId]) {
-        setChatStates(prev => ({
-          ...prev,
-          [clientId]: { isOpen: false, messages: [] }
-        }));
+        setChatStates(prev => {
+          const newStates = {
+            ...prev,
+            [clientId]: { isOpen: false, messages: [] }
+          };
+          saveChatStates(newStates);
+          return newStates;
+        });
       }
     }
   };
@@ -102,13 +155,33 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
   const handleToggleChat = () => {
     if (!selectedClient) return;
     
-    setChatStates(prev => ({
-      ...prev,
-      [selectedClient.id]: {
-        ...prev[selectedClient.id],
-        isOpen: !prev[selectedClient.id]?.isOpen
-      }
-    }));
+    setChatStates(prev => {
+      const newStates = {
+        ...prev,
+        [selectedClient.id]: {
+          ...prev[selectedClient.id],
+          isOpen: !prev[selectedClient.id]?.isOpen
+        }
+      };
+      saveChatStates(newStates);
+      return newStates;
+    });
+  };
+
+  const handleChatMessagesChange = (messages: ChatMessage[]) => {
+    if (!selectedClient) return;
+    
+    setChatStates(prev => {
+      const newStates = {
+        ...prev,
+        [selectedClient.id]: {
+          ...prev[selectedClient.id],
+          messages
+        }
+      };
+      saveChatStates(newStates);
+      return newStates;
+    });
   };
 
   const getCurrentChatState = () => {
@@ -396,11 +469,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
               isOpen={currentChatState.isOpen}
               onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
               onToggle={handleToggleChat}
+              messages={currentChatState.messages}
+              onMessagesChange={handleChatMessagesChange}
             />
           </div>
         )}
       </div>
 
+      {/* Dialog components - keep existing code */}
       <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
         <DialogContent>
           <DialogHeader>

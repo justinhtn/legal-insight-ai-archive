@@ -35,20 +35,28 @@ interface GmailStyleChatProps {
   isOpen: boolean;
   onOpenDocumentWithHighlights?: (document: any, highlights: any[], query: string) => void;
   onToggle: () => void;
+  messages?: ChatMessage[];
+  onMessagesChange?: (messages: ChatMessage[]) => void;
 }
 
 const GmailStyleChat: React.FC<GmailStyleChatProps> = ({ 
   client, 
   isOpen,
   onOpenDocumentWithHighlights,
-  onToggle
+  onToggle,
+  messages: externalMessages = [],
+  onMessagesChange
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [internalMessages, setInternalMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
+
+  // Use external messages if provided, otherwise use internal state
+  const messages = externalMessages.length > 0 ? externalMessages : internalMessages;
+  const setMessages = onMessagesChange || setInternalMessages;
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -56,20 +64,6 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen]);
-
-  // Load chat history when client changes
-  useEffect(() => {
-    if (client) {
-      loadChatHistory();
-    } else {
-      setMessages([]);
-    }
-  }, [client?.id]);
-
-  const loadChatHistory = () => {
-    // In real implementation, load from storage/database
-    setMessages([]);
-  };
 
   // Auto-expanding textarea logic
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -171,77 +165,84 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     }
   };
 
-  const getConciseResponse = (fullResponse: string) => {
-    // Remove boilerplate phrases more aggressively
+  // Format AI response like a professional legal secretary
+  const formatLegalSecretaryResponse = (fullResponse: string) => {
+    // Remove all technical jargon and metadata
     let response = fullResponse
+      .replace(/Based on (?:the )?(?:provided )?documents?,?\s*/gi, '')
+      .replace(/According to (?:the )?(?:provided )?documents?,?\s*/gi, '')
+      .replace(/Document:\s*[^|]+\|\s*Location:\s*[^|]+\|\s*Lines:\s*[^\n\r.]+/gi, '')
+      .replace(/Document:\s*[^|]+\|\s*Page\s*\d+/gi, '')
+      .replace(/\(.*?Chunk \d+.*?\)/gi, '')
+      .replace(/\(Document \d+.*?\)/gi, '')
+      .replace(/Location:\s*[^\n\r.]+/gi, '')
+      .replace(/Lines:\s*[^\n\r.]+/gi, '')
+      .replace(/as referenced in.*?,/gi, '')
+      .replace(/This information is explicitly stated in.*?\./gi, '')
       .replace(/If you (?:require|need) further details.*?please let me know\.?/gi, '')
       .replace(/Review the highlighted sources.*?specific aspect\??/gi, '')
       .replace(/Would you like me to elaborate.*?\??/gi, '')
-      .replace(/This information is explicitly stated in.*?\./gi, '')
-      .replace(/as referenced in.*?,/gi, '')
-      .replace(/\(.*?Chunk \d+.*?\)/gi, '')
-      .replace(/\(Document \d+.*?\)/gi, '')
-      .replace(/Based on the provided documents?,?/gi, '')
-      .replace(/According to the document(?:s|ation)?,?/gi, '')
       .trim();
+
+    // Clean up any remaining technical artifacts
+    response = response
+      .replace(/^\s*[-•]\s*/gm, '') // Remove bullet points at start of lines
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+
+    // If the response is very short, return as is
+    if (response.length < 100) {
+      return response;
+    }
 
     // Split into sentences and clean up
     const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 10);
     
-    // For very short answers (like numbers, dates), return as is
-    if (response.length < 50) {
-      return response;
-    }
+    // For longer responses, keep it concise but complete
+    const maxSentences = 3;
+    const finalResponse = sentences.slice(0, maxSentences).join('. ').trim();
     
-    // For longer responses, limit to 2-3 sentences max for conciseness
-    const maxSentences = response.includes('•') || response.includes('-') ? 5 : 2;
-    return sentences.slice(0, maxSentences).join('. ').trim() + (sentences.length > maxSentences ? '.' : '');
+    return finalResponse + (finalResponse.endsWith('.') ? '' : '.');
   };
 
   const formatDocumentReference = (source: any) => {
     const fileName = source.document_file_name || source.document_title;
-    return fileName; // Simplified - just show filename
+    return fileName;
   };
 
   const formatAIResponse = (content: string, sources: any[], documentCount: number, query: string) => {
-    const conciseContent = getConciseResponse(content);
+    const formattedContent = formatLegalSecretaryResponse(content);
     
     // Filter sources to only show documents actually referenced by AI
     const relevantSources = filterRelevantSources(sources, content, query);
     
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-blue-600 font-semibold">
-          <span>🤖</span>
-          <span>AI Analysis</span>
-        </div>
-        
-        <div className="text-sm leading-relaxed">
-          {conciseContent}
+      <div className="space-y-3">
+        <div className="text-sm leading-relaxed text-gray-800">
+          {formattedContent}
         </div>
 
         {relevantSources && relevantSources.length > 0 && (
-          <div className="mt-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-              <span>📚</span>
-              <span>Key Sources</span>
+          <div className="mt-3 space-y-2">
+            <div className="text-xs font-medium text-gray-600 mb-2">
+              Referenced in:
             </div>
 
             {relevantSources.map((source, sourceIndex) => (
               <div key={sourceIndex} className="space-y-1">
                 {source.excerpts && source.excerpts.map((excerpt: any, excerptIndex: number) => (
-                  <div key={excerptIndex} className="bg-yellow-50 border-l-3 border-yellow-300 p-2 rounded-r">
+                  <div key={excerptIndex} className="bg-yellow-50 border-l-2 border-yellow-300 p-2 rounded-r text-xs">
                     <button
                       onClick={() => handleViewDocument(source, query, content)}
-                      className="w-full text-left"
+                      className="w-full text-left hover:bg-yellow-100 rounded p-1 -m-1"
                     >
-                      <div className="text-xs text-gray-600 mb-1">
-                        <FileText className="h-3 w-3 inline mr-1" />
+                      <div className="text-gray-600 mb-1 flex items-center">
+                        <FileText className="h-3 w-3 mr-1" />
                         {formatDocumentReference(source)}
                         {excerpt.page && ` • Page ${excerpt.page}`}
                       </div>
-                      <div className="text-sm text-blue-600 hover:text-blue-800">
-                        "{excerpt.text.length > 150 ? excerpt.text.substring(0, 150) + '...' : excerpt.text}"
+                      <div className="text-blue-700 font-medium">
+                        "{excerpt.text.length > 120 ? excerpt.text.substring(0, 120) + '...' : excerpt.text}"
                       </div>
                     </button>
                   </div>
@@ -292,7 +293,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
             lines: excerpt.lines,
             section: excerpt.section,
             queryRelevance: excerpt.queryRelevance,
-            originalIndex: excerptIndex, // Keep track of original order
+            originalIndex: excerptIndex,
           })),
         };
       });
