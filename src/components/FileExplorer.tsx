@@ -353,9 +353,10 @@ cases and can see all details in their proper context.`}
 
   return (
     <div className="h-full bg-gray-100 p-3">
+      {/* Gmail-style 3-panel layout with proper spacing */}
       <div className="flex h-full gap-3">
         {/* Panel 1: Client Sidebar */}
-        <div className="w-64 bg-white rounded-lg shadow-sm border">
+        <div className="w-64 bg-white rounded-lg shadow-sm border flex-shrink-0">
           <ClientSidebar
             clients={clients}
             selectedClientId={selectedClient?.id}
@@ -366,12 +367,10 @@ cases and can see all details in their proper context.`}
         </div>
 
         {/* Panel 2: Main Content Area */}
-        <div className={`flex-1 bg-white rounded-lg shadow-sm border transition-all duration-300 ${
-          currentChatState.isOpen ? 'mr-80' : ''
-        }`}>
+        <div className="flex-1 bg-white rounded-lg shadow-sm border flex flex-col min-w-0">
           {selectedClient ? (
-            <div className="flex flex-col h-full">
-              {/* Always show tabs when client is selected */}
+            <>
+              {/* Single Tab Bar - Always visible when client is selected */}
               <div className="sticky top-0 z-10 bg-white border-b rounded-t-lg">
                 <TabbedDocumentViewer
                   tabs={documentTabs}
@@ -411,7 +410,7 @@ cases and can see all details in their proper context.`}
                   />
                 )}
               </div>
-            </div>
+            </>
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
@@ -431,9 +430,9 @@ cases and can see all details in their proper context.`}
           )}
         </div>
 
-        {/* Panel 3: Fixed Chat Panel with Gmail styling */}
-        {currentChatState.isOpen && (
-          <div className="w-80 bg-white rounded-lg shadow-sm border">
+        {/* Panel 3: Fixed Chat Panel - Only show when client selected and chat is open */}
+        {selectedClient && currentChatState.isOpen && (
+          <div className="w-80 bg-white rounded-lg shadow-sm border flex-shrink-0">
             <GmailStyleChat
               client={selectedClient}
               isOpen={true}

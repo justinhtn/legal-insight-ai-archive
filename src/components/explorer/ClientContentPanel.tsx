@@ -1,5 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
+import { MessageCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { Client, Folder, getFolders } from '@/services/clientService';
 import { useToast } from '@/hooks/use-toast';
@@ -117,8 +118,20 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Client Info Section - No chat button here anymore */}
+      {/* Client Info Section with Chat Button */}
       <div className="p-4 border-b">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Client Information</h2>
+          <Button
+            onClick={onToggleChat}
+            variant={isChatOpen ? "default" : "outline"}
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <MessageCircle className="h-4 w-4" />
+            {isChatOpen ? 'Close Chat' : 'Open Chat'}
+          </Button>
+        </div>
         <ClientInfoPanel
           client={client}
           onClientUpdated={onClientUpdated}
