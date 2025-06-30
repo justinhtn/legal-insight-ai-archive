@@ -5,11 +5,10 @@ import { getDocuments } from '@/services/documentService';
 import ClientSidebar from './explorer/ClientSidebar';
 import FilePanel from './explorer/FilePanel';
 import TabbedDocumentViewer from './explorer/TabbedDocumentViewer';
-import FloatingChatPanel from './explorer/FloatingChatPanel';
+import GmailStyleChatPanel from './explorer/GmailStyleChatPanel';
 import DocumentUploadModal from './DocumentUploadModal';
 import { toast } from 'sonner';
-import { MessageSquare, X, FileText, Lightbulb } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { FileText, Lightbulb, X } from 'lucide-react';
 
 interface Document {
   id: string;
@@ -288,28 +287,16 @@ const FileExplorer: React.FC = () => {
           )}
         </div>
 
-        {/* Chat Panel */}
-        {selectedClientId && isChatOpen && (
-          <FloatingChatPanel
+        {/* Gmail-Style Chat Panel */}
+        {selectedClientId && (
+          <GmailStyleChatPanel
             client={selectedClient || null}
+            isOpen={isChatOpen}
             onOpenDocumentWithHighlights={handleDocumentOpen}
+            onToggle={() => setIsChatOpen(!isChatOpen)}
           />
         )}
       </div>
-
-      {/* Chat Toggle Button */}
-      {selectedClientId && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <Button
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            variant="default"
-            size="icon"
-            className="w-12 h-12 rounded-full shadow-lg"
-          >
-            <MessageSquare className="h-6 w-6" />
-          </Button>
-        </div>
-      )}
 
       {/* Upload Modal */}
       {showUploadModal && (
