@@ -1,7 +1,8 @@
 
 import React from 'react';
-import { FileText, Upload, RefreshCw } from 'lucide-react';
+import { FileText, Upload, RefreshCw, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface FileItem {
   id: string;
@@ -30,14 +31,41 @@ const FilePanel: React.FC<FilePanelProps> = ({
   onRefresh,
   onFileClick
 }) => {
-  const formatFileSize = (bytes: number) => {
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '--';
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
     return Math.round(bytes / (1024 * 1024)) + ' MB';
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    const date = new Date(dateString);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const fileDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    if (fileDate.getTime() === today.getTime()) {
+      return 'Today at ' + date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true 
+      });
+    }
+    
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    }) + ' at ' + date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+  };
+
+  const getFileKind = (file: FileItem) => {
+    if (file.type === 'folder') return 'Folder';
+    const extension = file.name.split('.').pop()?.toUpperCase();
+    return extension || 'Document';
   };
 
   const handleFileClick = (file: FileItem) => {
@@ -48,7 +76,8 @@ const FilePanel: React.FC<FilePanelProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b">
+      {/* Header with buttons */}
+      <div className="p-4 border-b bg-white flex-shrink-0">
         <div className="flex items-center justify-between">
           <h3 className="font-medium text-gray-900">
             Files {selectedFolderId && folderName && (
@@ -77,6 +106,7 @@ const FilePanel: React.FC<FilePanelProps> = ({
         </div>
       </div>
 
+      {/* File table - scrollable content area */}
       <div className="flex-1 overflow-auto">
         {isLoading ? (
           <div className="text-center py-12 text-gray-500">
@@ -96,32 +126,47 @@ const FilePanel: React.FC<FilePanelProps> = ({
             </Button>
           </div>
         ) : (
-          <div className="p-4">
-            <div className="space-y-2">
-              {files.map((file) => (
-                <div
+          <Table>
+            <TableHeader className="sticky top-0 bg-gray-50 z-10">
+              <TableRow>
+                <TableHead className="text-left font-medium text-gray-700">Name</TableHead>
+                <TableHead className="text-left font-medium text-gray-700">Date Modified</TableHead>
+                <TableHead className="text-left font-medium text-gray-700">Size</TableHead>
+                <TableHead className="text-left font-medium text-gray-700">Kind</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {files.map((file, index) => (
+                <TableRow
                   key={file.id}
-                  className={`flex items-center p-3 rounded-lg border transition-colors ${
-                    file.type === 'file' 
-                      ? 'hover:bg-blue-50 cursor-pointer hover:border-blue-200' 
-                      : 'hover:bg-gray-50'
-                  }`}
+                  className={`hover:bg-blue-50 cursor-pointer transition-colors ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                  } ${file.type === 'file' ? 'hover:bg-blue-100' : ''}`}
                   onClick={() => handleFileClick(file)}
                 >
-                  <FileText className="h-5 w-5 text-gray-500 mr-3" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">{file.name}</p>
-                    <p className="text-sm text-gray-500">
-                      {file.size && formatFileSize(file.size)} • {formatDate(file.modified)}
-                      {file.type === 'file' && (
-                        <span className="ml-2 text-blue-600 text-xs">Click to open</span>
+                  <TableCell className="py-2">
+                    <div className="flex items-center">
+                      {file.type === 'folder' ? (
+                        <Folder className="h-4 w-4 text-blue-500 mr-3" />
+                      ) : (
+                        <FileText className="h-4 w-4 text-gray-500 mr-3" />
                       )}
-                    </p>
-                  </div>
-                </div>
+                      <span className="font-medium text-gray-900">{file.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-2 text-gray-600 text-sm">
+                    {formatDate(file.modified)}
+                  </TableCell>
+                  <TableCell className="py-2 text-gray-600 text-sm">
+                    {formatFileSize(file.size)}
+                  </TableCell>
+                  <TableCell className="py-2 text-gray-600 text-sm">
+                    {getFileKind(file)}
+                  </TableCell>
+                </TableRow>
               ))}
-            </div>
-          </div>
+            </TableBody>
+          </Table>
         )}
       </div>
     </div>

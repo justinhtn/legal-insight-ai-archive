@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -117,9 +118,9 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Client Info Section with Chat Button */}
-      <div className="p-4 border-b">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Client Info Section with Chat Button - Fixed at top */}
+      <div className="p-4 border-b flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Client Information</h2>
           <Button
@@ -138,28 +139,31 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
         />
       </div>
 
-      {/* Folders Section */}
-      <div className="border-b">
-        <FolderPanel
-          folders={folders}
-          selectedFolderId={selectedFolderId}
-          onFolderSelect={onFolderSelect}
-          onNewFolder={onNewFolder}
-          isLoading={isLoadingFolders}
-        />
-      </div>
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Folders Section */}
+        <div className="border-b">
+          <FolderPanel
+            folders={folders}
+            selectedFolderId={selectedFolderId}
+            onFolderSelect={onFolderSelect}
+            onNewFolder={onNewFolder}
+            isLoading={isLoadingFolders}
+          />
+        </div>
 
-      {/* Files Section */}
-      <div className="flex-1">
-        <FilePanel
-          files={files}
-          selectedFolderId={selectedFolderId}
-          folderName={selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name : null}
-          onUpload={onUpload}
-          isLoading={isLoadingFiles}
-          onRefresh={refreshData}
-          onFileClick={onOpenDocument}
-        />
+        {/* Files Section */}
+        <div className="min-h-0 flex-1">
+          <FilePanel
+            files={files}
+            selectedFolderId={selectedFolderId}
+            folderName={selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name : null}
+            onUpload={onUpload}
+            isLoading={isLoadingFiles}
+            onRefresh={refreshData}
+            onFileClick={onOpenDocument}
+          />
+        </div>
       </div>
     </div>
   );

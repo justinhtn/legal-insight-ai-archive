@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send, Loader2, FileText, ExternalLink, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -228,9 +227,9 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b bg-gray-50 rounded-t-lg flex items-center justify-between">
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Header - Fixed at top */}
+      <div className="p-4 border-b bg-gray-50 rounded-t-lg flex items-center justify-between flex-shrink-0">
         <div className="flex items-center">
           <MessageCircle className="mr-2 h-5 w-5 text-blue-600" />
           <span className="font-semibold text-gray-900">Chat - {client.name}</span>
@@ -245,52 +244,54 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
         </Button>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {messages.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <p className="font-medium">Start a conversation about {client.name}'s case</p>
-              <p className="text-sm">Ask questions about documents, deadlines, or case details</p>
-            </div>
-          )}
-          
-          {messages.map((message) => (
-            <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <Card className={`max-w-[90%] p-4 ${
-                message.role === 'user' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-gray-100'
-              }`}>
-                {message.role === 'assistant' && message.sources ? (
-                  formatAIResponse(message.content, message.sources, message.documentCount || 0, message.query || '')
-                ) : (
-                  <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                )}
-                
-                <div className="text-xs opacity-70 mt-3 pt-2 border-t border-gray-200">
-                  {message.timestamp.toLocaleTimeString()}
-                </div>
-              </Card>
-            </div>
-          ))}
-          
-          {isLoading && (
-            <div className="flex justify-start">
-              <Card className="max-w-[80%] p-3 bg-gray-100">
-                <div className="flex items-center text-sm text-gray-600">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  AI is analyzing documents...
-                </div>
-              </Card>
-            </div>
-          )}
-        </div>
-        <div ref={messagesEndRef} />
-      </ScrollArea>
+      {/* Messages - Scrollable area */}
+      <div className="flex-1 overflow-y-auto">
+        <ScrollArea className="h-full p-4">
+          <div className="space-y-4">
+            {messages.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <p className="font-medium">Start a conversation about {client.name}'s case</p>
+                <p className="text-sm">Ask questions about documents, deadlines, or case details</p>
+              </div>
+            )}
+            
+            {messages.map((message) => (
+              <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <Card className={`max-w-[90%] p-4 ${
+                  message.role === 'user' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-100'
+                }`}>
+                  {message.role === 'assistant' && message.sources ? (
+                    formatAIResponse(message.content, message.sources, message.documentCount || 0, message.query || '')
+                  ) : (
+                    <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  )}
+                  
+                  <div className="text-xs opacity-70 mt-3 pt-2 border-t border-gray-200">
+                    {message.timestamp.toLocaleTimeString()}
+                  </div>
+                </Card>
+              </div>
+            ))}
+            
+            {isLoading && (
+              <div className="flex justify-start">
+                <Card className="max-w-[80%] p-3 bg-gray-100">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    AI is analyzing documents...
+                  </div>
+                </Card>
+              </div>
+            )}
+          </div>
+          <div ref={messagesEndRef} />
+        </ScrollArea>
+      </div>
 
-      {/* Input */}
-      <div className="p-4 border-t">
+      {/* Input - Fixed at bottom */}
+      <div className="p-4 border-t bg-white flex-shrink-0">
         <div className="flex gap-2">
           <Input
             value={inputValue}

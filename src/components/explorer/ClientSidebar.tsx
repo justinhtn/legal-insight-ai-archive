@@ -22,13 +22,13 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({
   if (isLoading) {
     return (
       <div className="h-full flex flex-col">
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <h2 className="font-semibold text-lg flex items-center text-gray-900">
             <Users className="mr-2 h-5 w-5" />
             All Clients
           </h2>
         </div>
-        <div className="flex-1 p-4">
+        <div className="flex-1 p-4 flex items-center justify-center">
           <div className="text-center text-gray-500">Loading clients...</div>
         </div>
       </div>
@@ -37,16 +37,16 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header - Part of background, no panel styling */}
-      <div className="p-4 border-b border-gray-200">
+      {/* Header - Fixed at top */}
+      <div className="p-4 border-b border-gray-200 flex-shrink-0">
         <h2 className="font-semibold text-lg flex items-center text-gray-900">
           <Users className="mr-2 h-5 w-5" />
           All Clients
         </h2>
       </div>
       
-      {/* Client List - Part of background */}
-      <div className="flex-1 p-2 overflow-auto">
+      {/* Client List - Scrollable area */}
+      <div className="flex-1 p-2 overflow-y-auto">
         <div className="space-y-1">
           {clients.map((client) => (
             <button
@@ -77,8 +77,8 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({
         </div>
       </div>
 
-      {/* New Client Button - Part of background */}
-      <div className="p-3 border-t border-gray-200">
+      {/* New Client Button - Fixed at bottom */}
+      <div className="p-3 border-t border-gray-200 flex-shrink-0">
         <Button
           variant="outline"
           size="sm"

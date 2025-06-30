@@ -352,12 +352,12 @@ cases and can see all details in their proper context.`}
   const currentChatState = getCurrentChatState();
 
   return (
-    <div className="h-full bg-gray-50 p-4">
+    <div className="h-screen bg-gray-50 p-4 overflow-hidden">
       {/* Gmail-style layout: Client list as background, floating panels */}
       <div className="flex h-full gap-4">
         
-        {/* Background Section: Client List (NO panel styling) */}
-        <div className="w-64 flex-shrink-0">
+        {/* Background Section: Client List (NO panel styling) - Fixed Height with Internal Scroll */}
+        <div className="w-64 flex-shrink-0 h-full overflow-hidden">
           <ClientSidebar
             clients={clients}
             selectedClientId={selectedClient?.id}
@@ -368,14 +368,14 @@ cases and can see all details in their proper context.`}
         </div>
 
         {/* Floating Panels Section */}
-        <div className="flex-1 flex gap-4 min-w-0">
+        <div className="flex-1 flex gap-4 min-w-0 h-full overflow-hidden">
           
-          {/* Floating Panel 1: Main Content */}
-          <div className="flex-1 bg-white rounded-lg shadow-sm border flex flex-col min-w-0">
+          {/* Floating Panel 1: Main Content - Fixed Height with Internal Scroll */}
+          <div className="flex-1 bg-white rounded-lg shadow-sm border flex flex-col min-w-0 h-full overflow-hidden">
             {selectedClient ? (
               <>
                 {/* Tab Bar - SINGLE INSTANCE ONLY */}
-                <div className="sticky top-0 z-10 bg-white border-b rounded-t-lg">
+                <div className="sticky top-0 z-10 bg-white border-b rounded-t-lg flex-shrink-0">
                   <TabbedDocumentViewer
                     tabs={documentTabs}
                     activeTabId={activeTabId}
@@ -387,7 +387,7 @@ cases and can see all details in their proper context.`}
                   />
                 </div>
 
-                {/* Content area */}
+                {/* Content area - Scrollable */}
                 <div className="flex-1 overflow-hidden">
                   {showOverview ? (
                     <ClientContentPanel
@@ -434,9 +434,9 @@ cases and can see all details in their proper context.`}
             )}
           </div>
 
-          {/* Floating Panel 2: Chat (when open) */}
+          {/* Floating Panel 2: Chat (when open) - Fixed Height */}
           {selectedClient && currentChatState.isOpen && (
-            <div className="w-80 bg-white rounded-lg shadow-sm border flex-shrink-0">
+            <div className="w-80 bg-white rounded-lg shadow-sm border flex-shrink-0 h-full overflow-hidden">
               <GmailStyleChat
                 client={selectedClient}
                 isOpen={true}
