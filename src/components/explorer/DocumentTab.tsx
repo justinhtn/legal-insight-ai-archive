@@ -68,7 +68,7 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
   const scrollToHighlight = (index: number) => {
     const element = document.getElementById(`highlight-${index}`);
     if (element) {
-      // Scroll within the document content area, not the entire page
+      // Find the ScrollArea viewport that contains this element
       const scrollArea = element.closest('[data-radix-scroll-area-viewport]');
       if (scrollArea) {
         const elementRect = element.getBoundingClientRect();
@@ -83,13 +83,13 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
       
       setCurrentHighlight(index);
       
-      // Remove previous current highlight
+      // Remove previous current highlight styling
       document.querySelectorAll('.bg-yellow-400').forEach(el => {
         el.classList.remove('bg-yellow-400');
         el.classList.add('bg-yellow-200');
       });
       
-      // Add current highlight
+      // Add current highlight styling
       element.classList.remove('bg-yellow-200');
       element.classList.add('bg-yellow-400');
     }
@@ -179,9 +179,9 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
         )}
       </div>
 
-      <div className="flex-1 flex min-h-0">
-        {/* Document Content - Scrollable */}
-        <div className="flex-1">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* Document Content - Scrollable within this container only */}
+        <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full">
             <div className="p-6">
               <div 
@@ -194,36 +194,38 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
           </ScrollArea>
         </div>
 
-        {/* Highlights Sidebar - Fixed */}
+        {/* Highlights Sidebar - Fixed, only scrollable within itself */}
         {showHighlights && highlights.length > 0 && (
-          <div className="w-80 border-l bg-gray-50 flex-shrink-0">
-            <div className="p-4 border-b">
+          <div className="w-80 border-l bg-gray-50 flex-shrink-0 flex flex-col">
+            <div className="p-4 border-b flex-shrink-0">
               <h3 className="font-semibold text-gray-900">Highlights ({highlights.length})</h3>
               {query && <p className="text-xs text-gray-500 mt-1">Related to: "{query}"</p>}
             </div>
-            <ScrollArea className="h-full">
-              <div className="p-4 space-y-2">
-                {highlights.map((highlight, index) => (
-                  <Card
-                    key={index}
-                    className={`p-3 cursor-pointer transition-colors ${
-                      currentHighlight === index ? 'bg-yellow-100 border-yellow-300' : 'hover:bg-gray-100'
-                    }`}
-                    onClick={() => scrollToHighlight(index)}
-                  >
-                    <div className="text-sm">
-                      <div className="font-medium text-gray-900 mb-1">
-                        {highlight.page && `Page ${highlight.page}`}
-                        {highlight.lines && ` • ${highlight.lines}`}
+            <div className="flex-1 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="p-4 space-y-2">
+                  {highlights.map((highlight, index) => (
+                    <Card
+                      key={index}
+                      className={`p-3 cursor-pointer transition-colors ${
+                        currentHighlight === index ? 'bg-yellow-100 border-yellow-300' : 'hover:bg-gray-100'
+                      }`}
+                      onClick={() => scrollToHighlight(index)}
+                    >
+                      <div className="text-sm">
+                        <div className="font-medium text-gray-900 mb-1">
+                          {highlight.page && `Page ${highlight.page}`}
+                          {highlight.lines && ` • ${highlight.lines}`}
+                        </div>
+                        <div className="text-gray-700 line-clamp-3">
+                          "{highlight.text}"
+                        </div>
                       </div>
-                      <div className="text-gray-700 line-clamp-3">
-                        "{highlight.text}"
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </ScrollArea>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
         )}
       </div>
