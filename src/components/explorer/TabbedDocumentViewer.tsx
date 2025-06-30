@@ -91,10 +91,7 @@ const TabbedDocumentViewer: React.FC<TabbedDocumentViewerProps> = ({
 
   return (
     <div className="h-full flex flex-col bg-white">
-      {/* Tab Bar */}
-      <TabBar />
-
-      {/* Tab Content */}
+      {/* Tab Content - NO TAB BAR HERE when showTabsOnly is false */}
       <div className="flex-1 overflow-hidden">
         {showOverview ? (
           <div className="h-full flex items-center justify-center bg-gray-50">
