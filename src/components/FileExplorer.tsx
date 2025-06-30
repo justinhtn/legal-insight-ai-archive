@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import ClientSidebar from './explorer/ClientSidebar';
 import ClientContentPanel from './explorer/ClientContentPanel';
+import ClientChatPanel from './explorer/ClientChatPanel';
 
 interface FileExplorerProps {
   onUpload: () => void;
@@ -40,9 +42,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     try {
       const clientsData = await getClients();
       setClients(clientsData);
-      
-      // If no client is selected but we have clients, don't auto-select
-      // Let user choose explicitly
     } catch (error) {
       console.error('Error loading clients:', error);
       toast({
@@ -141,7 +140,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
   };
 
   const handleUploadWithContext = () => {
-    // Pass current context to the upload modal
     onUpload();
   };
 
@@ -152,40 +150,57 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
 
   return (
     <div className="h-full flex bg-white">
-      <ClientSidebar
-        clients={clients}
-        selectedClientId={selectedClient?.id}
-        onClientSelect={handleClientSelect}
-        onNewClient={() => setShowNewClientDialog(true)}
-        isLoading={isLoadingClients}
-      />
+      <ResizablePanelGroup direction="horizontal" className="h-full">
+        {/* Panel 1: Client Sidebar */}
+        <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+          <ClientSidebar
+            clients={clients}
+            selectedClientId={selectedClient?.id}
+            onClientSelect={handleClientSelect}
+            onNewClient={() => setShowNewClientDialog(true)}
+            isLoading={isLoadingClients}
+          />
+        </ResizablePanel>
 
-      {selectedClient ? (
-        <ClientContentPanel
-          client={selectedClient}
-          selectedFolderId={selectedFolderId}
-          onFolderSelect={handleFolderSelect}
-          onNewFolder={() => setShowNewFolderDialog(true)}
-          onUpload={handleUploadWithContext}
-          onClientUpdated={handleClientUpdated}
-        />
-      ) : (
-        <div className="flex-1 flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Welcome to Your Legal Archive
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Select a client from the sidebar to view their documents and folders
-            </p>
-            {clients.length === 0 && !isLoadingClients && (
-              <Button onClick={() => setShowNewClientDialog(true)}>
-                Create Your First Client
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
+        <ResizableHandle withHandle />
+
+        {/* Panel 2: Client Content */}
+        <ResizablePanel defaultSize={45} minSize={30}>
+          {selectedClient ? (
+            <ClientContentPanel
+              client={selectedClient}
+              selectedFolderId={selectedFolderId}
+              onFolderSelect={handleFolderSelect}
+              onNewFolder={() => setShowNewFolderDialog(true)}
+              onUpload={handleUploadWithContext}
+              onClientUpdated={handleClientUpdated}
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-center bg-gray-50">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                  Welcome to Your Legal Archive
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  Select a client from the sidebar to view their documents and folders
+                </p>
+                {clients.length === 0 && !isLoadingClients && (
+                  <Button onClick={() => setShowNewClientDialog(true)}>
+                    Create Your First Client
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        {/* Panel 3: Client Chat */}
+        <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
+          <ClientChatPanel client={selectedClient} />
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* New Folder Dialog */}
       <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
