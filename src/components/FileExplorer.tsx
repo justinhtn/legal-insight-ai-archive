@@ -5,11 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { supabase } from '@/integrations/supabase/client';
 import ClientSidebar from './explorer/ClientSidebar';
 import ClientContentPanel from './explorer/ClientContentPanel';
 import TabbedDocumentViewer from './explorer/TabbedDocumentViewer';
+import GmailStyleChat from './explorer/GmailStyleChat';
 
 interface DocumentTabData {
   id: string;
@@ -49,8 +49,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [showOverview, setShowOverview] = useState(true);
 
-  // Chat panel state
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  // Chat panel state - persistent per client
+  const [chatStates, setChatStates] = useState<Record<string, { isOpen: boolean; messages: any[] }>>({});
 
   const { toast } = useToast();
 
@@ -80,7 +80,14 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     if (client) {
       setSelectedClient(client);
       setSelectedFolderId(null);
-      // Keep chat state persistent per client
+      
+      // Initialize chat state for client if it doesn't exist
+      if (!chatStates[clientId]) {
+        setChatStates(prev => ({
+          ...prev,
+          [clientId]: { isOpen: false, messages: [] }
+        }));
+      }
     }
   };
 
@@ -89,10 +96,34 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
   };
 
   const handleToggleChat = () => {
-    setIsChatOpen(!isChatOpen);
+    if (!selectedClient) return;
+    
+    setChatStates(prev => ({
+      ...prev,
+      [selectedClient.id]: {
+        ...prev[selectedClient.id],
+        isOpen: !prev[selectedClient.id]?.isOpen
+      }
+    }));
+  };
+
+  const getCurrentChatState = () => {
+    if (!selectedClient) return { isOpen: false, messages: [] };
+    return chatStates[selectedClient.id] || { isOpen: false, messages: [] };
   };
 
   const handleOpenDocumentWithHighlights = (document: any, highlights: any[], query: string) => {
+    const existingTabIndex = documentTabs.findIndex(tab => 
+      tab.title === document.document_title && tab.query === query
+    );
+    
+    if (existingTabIndex !== -1) {
+      // Tab already exists, just switch to it
+      setActiveTabId(documentTabs[existingTabIndex].id);
+      setShowOverview(false);
+      return;
+    }
+
     // Load full document content
     const fullDocumentContent = `${document.document_title}
 
@@ -115,7 +146,7 @@ ${excerpt.text}
 
 This ensures users can read the full context around highlighted sections and understand the complete document structure and content.`;
     
-    const tabId = `${document.document_file_name}-${Date.now()}`;
+    const tabId = `${document.document_file_name}-${query}-${Date.now()}`;
     
     const newTab: DocumentTabData = {
       id: tabId,
@@ -131,6 +162,18 @@ This ensures users can read the full context around highlighted sections and und
   };
 
   const handleOpenDocument = async (document: any) => {
+    // Check if tab already exists for this document
+    const existingTabIndex = documentTabs.findIndex(tab => 
+      tab.title === document.name && !tab.query
+    );
+    
+    if (existingTabIndex !== -1) {
+      // Tab already exists, just switch to it
+      setActiveTabId(documentTabs[existingTabIndex].id);
+      setShowOverview(false);
+      return;
+    }
+
     try {
       // Load the full document content from database
       const { data: fullDoc, error } = await supabase
@@ -300,11 +343,14 @@ cases and can see all details in their proper context.`}
     setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
   };
 
+  const currentChatState = getCurrentChatState();
+
   return (
-    <div className="h-full flex bg-white relative">
-      <ResizablePanelGroup direction="horizontal" className="h-full">
+    <div className="h-full bg-gray-50 relative">
+      {/* Gmail-style layout with proper spacing */}
+      <div className="flex h-full gap-3 p-3">
         {/* Panel 1: Client Sidebar */}
-        <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+        <div className="w-64 bg-white rounded-lg shadow-sm border">
           <ClientSidebar
             clients={clients}
             selectedClientId={selectedClient?.id}
@@ -312,16 +358,16 @@ cases and can see all details in their proper context.`}
             onNewClient={() => setShowNewClientDialog(true)}
             isLoading={isLoadingClients}
           />
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
+        </div>
 
         {/* Panel 2: Main Content Area */}
-        <ResizablePanel defaultSize={isChatOpen ? 60 : 80} minSize={40}>
+        <div className={`flex-1 bg-white rounded-lg shadow-sm border transition-all duration-300 ${
+          currentChatState.isOpen ? 'mr-80' : 'mr-0'
+        }`}>
           {selectedClient ? (
             <div className="flex flex-col h-full">
               {/* Always show tabs when client is selected */}
-              <div className="sticky top-0 z-10 bg-white border-b">
+              <div className="sticky top-0 z-10 bg-white border-b rounded-t-lg">
                 <TabbedDocumentViewer
                   tabs={documentTabs}
                   activeTabId={activeTabId}
@@ -344,7 +390,7 @@ cases and can see all details in their proper context.`}
                     onUpload={handleUploadWithContext}
                     onClientUpdated={handleClientUpdated}
                     onOpenDocument={handleOpenDocument}
-                    isChatOpen={isChatOpen}
+                    isChatOpen={currentChatState.isOpen}
                     onToggleChat={handleToggleChat}
                     onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
                   />
@@ -362,7 +408,7 @@ cases and can see all details in their proper context.`}
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-gray-50">
+            <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">
                   Welcome to Your Legal Archive
@@ -378,8 +424,16 @@ cases and can see all details in their proper context.`}
               </div>
             </div>
           )}
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        </div>
+
+        {/* Gmail-style Chat Panel */}
+        <GmailStyleChat
+          client={selectedClient}
+          isOpen={currentChatState.isOpen}
+          onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
+          onToggle={handleToggleChat}
+        />
+      </div>
 
       {/* Dialogs remain the same */}
       <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
