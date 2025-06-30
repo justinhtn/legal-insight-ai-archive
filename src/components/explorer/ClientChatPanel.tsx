@@ -17,7 +17,7 @@ interface ChatMessage {
   sources?: Array<{
     document_title: string;
     document_file_name: string;
-    page_number?: number;
+    pages?: number[];
   }>;
 }
 
@@ -70,16 +70,28 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
       // Use the existing search service to get AI responses
       const response = await searchDocuments(userMessage.content, client.id);
       
+      // Extract sources from consolidated documents
+      const sources = response.consolidated_documents?.slice(0, 3).map(doc => {
+        // Get unique page numbers from excerpts
+        const pages = doc.excerpts
+          .map(excerpt => excerpt.page)
+          .filter((page): page is number => typeof page === 'number')
+          .filter((page, index, arr) => arr.indexOf(page) === index)
+          .sort((a, b) => a - b);
+
+        return {
+          document_title: doc.document_title,
+          document_file_name: doc.document_file_name,
+          pages: pages.length > 0 ? pages : undefined,
+        };
+      });
+
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: response.ai_response || 'I couldn\'t find relevant information in the documents.',
         timestamp: new Date(),
-        sources: response.consolidated_documents?.slice(0, 3).map(doc => ({
-          document_title: doc.document_title,
-          document_file_name: doc.document_file_name,
-          page_number: doc.page_number,
-        })),
+        sources,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -150,7 +162,14 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
                       {message.sources.map((source, index) => (
                         <div key={index} className="text-xs text-gray-600">
                           • {source.document_title}
-                          {source.page_number && `, page ${source.page_number}`}
+                          {source.pages && source.pages.length > 0 && (
+                            <span>
+                              {source.pages.length === 1 
+                                ? `, page ${source.pages[0]}`
+                                : `, pages ${source.pages.join(', ')}`
+                              }
+                            </span>
+                          )}
                         </div>
                       ))}
                     </div>
