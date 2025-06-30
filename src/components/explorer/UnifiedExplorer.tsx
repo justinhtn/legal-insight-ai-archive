@@ -184,12 +184,7 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
                           <ChevronRight className="h-4 w-4 disclosure-icon" />
                         }
                         <Users className="h-4 w-4 client-icon" />
-                        <div className="client-info">
-                          <div className="client-name">{client.name}</div>
-                          <div className="client-meta">
-                            {client.matter_type || 'General'} • Case #{client.case_number || 'N/A'}
-                          </div>
-                        </div>
+                        <span className="client-name">{client.name}</span>
                       </div>
                       
                       {expandedClients[client.id] && (
