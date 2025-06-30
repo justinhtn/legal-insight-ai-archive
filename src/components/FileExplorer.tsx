@@ -26,7 +26,7 @@ interface DocumentTabData {
   type: 'document' | 'folder';
   title: string;
   content: string;
-  highlights: string[];
+  highlights: { text: string; page?: number; lines?: string; }[];
   query: string;
 }
 
@@ -216,8 +216,8 @@ const FileExplorer: React.FC = () => {
                       onNewFolder={() => {}}
                       onUpload={handleUpload}
                       onClientUpdated={() => {}}
-                      folders={folders}
-                      isLoading={false}
+                      isChatOpen={isChatOpen}
+                      onToggleChat={() => setIsChatOpen(!isChatOpen)}
                     />
                   </TabsContent>
 
