@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Loader2, FileText, X } from 'lucide-react';
+import { MessageCircle, Send, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
@@ -37,6 +37,8 @@ interface GmailStyleChatProps {
   onToggle: () => void;
   messages?: ChatMessage[];
   onMessagesChange?: (messages: ChatMessage[]) => void;
+  openTabs?: Array<{ id: string; title: string; document_id?: string; document_title?: string }>;
+  onSwitchToTab?: (tabId: string) => void;
 }
 
 const GmailStyleChat: React.FC<GmailStyleChatProps> = ({ 
@@ -45,7 +47,9 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
   onOpenDocumentWithHighlights,
   onToggle,
   messages: externalMessages = [],
-  onMessagesChange
+  onMessagesChange,
+  openTabs = [],
+  onSwitchToTab
 }) => {
   const [internalMessages, setInternalMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -76,63 +80,91 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     }
   }, [messages, isOpen]);
 
-  // Auto-expanding textarea logic
+  // Auto-expanding textarea logic - Fixed implementation
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const textarea = e.target;
-    setInputValue(e.target.value);
+    setInputValue(textarea.value);
     
-    // Reset height to auto to get accurate scrollHeight
+    // Reset height to recalculate
     textarea.style.height = 'auto';
     
-    // Set height based on content
+    // Calculate new height
     const scrollHeight = textarea.scrollHeight;
-    const maxHeight = 200; // Maximum height before scrolling
+    const maxHeight = 120; // Maximum height in pixels
+    const minHeight = 40; // Minimum height in pixels
     
     if (scrollHeight <= maxHeight) {
-      textarea.style.height = scrollHeight + 'px';
+      textarea.style.height = Math.max(scrollHeight, minHeight) + 'px';
+      textarea.style.overflowY = 'hidden';
     } else {
       textarea.style.height = maxHeight + 'px';
-      textarea.style.overflowY = 'scroll';
+      textarea.style.overflowY = 'auto';
     }
   };
 
-  // Improved filtering to only show documents actually referenced by AI
-  const filterRelevantSources = (sources: any[], aiResponse: string, userQuery: string) => {
-    if (!sources || sources.length === 0) return sources;
-    
-    const queryLower = userQuery.toLowerCase();
-    const aiLower = aiResponse.toLowerCase();
-    
-    return sources.filter(source => {
-      // First check if any excerpts are actually relevant to the query
-      const relevantExcerpts = source.excerpts?.filter((excerpt: any) => {
-        const excerptLower = excerpt.text.toLowerCase();
-        
-        // For age queries, only show excerpts that contain age information
-        if (queryLower.includes('age') || queryLower.includes('minor')) {
-          return excerptLower.includes('age') || 
-                 excerptLower.includes('year') || 
-                 excerptLower.includes('old') || 
-                 /\b\d+\b/.test(excerpt.text); // Contains numbers
-        }
-        
-        // For other queries, check if AI response references this excerpt
-        const excerptWords = excerptLower.split(/\s+/).filter(word => word.length > 3);
-        return excerptWords.some(word => aiLower.includes(word));
-      });
+  // Enhanced conversational AI response formatting
+  const formatConversationalResponse = (fullResponse: string) => {
+    // Remove technical jargon and metadata
+    let response = fullResponse
+      .replace(/Based on (?:the )?(?:provided )?documents?,?\s*/gi, '')
+      .replace(/According to (?:the )?(?:provided )?documents?,?\s*/gi, '')
+      .replace(/Document:\s*[^|]+\|\s*Location:\s*[^|]+\|\s*Lines:\s*[^\n\r.]+/gi, '')
+      .replace(/Document:\s*[^|]+\|\s*Page\s*\d+/gi, '')
+      .replace(/\(.*?Chunk \d+.*?\)/gi, '')
+      .replace(/\(Document \d+.*?\)/gi, '')
+      .replace(/Location:\s*[^\n\r.]+/gi, '')
+      .replace(/Lines:\s*[^\n\r.]+/gi, '')
+      .replace(/as referenced in.*?,/gi, '')
+      .replace(/This information is explicitly stated in.*?\./gi, '')
+      .replace(/If you (?:require|need) further details.*?please let me know\.?/gi, '')
+      .replace(/Review the highlighted sources.*?specific aspect\??/gi, '')
+      .replace(/Would you like me to elaborate.*?\??/gi, '')
+      .trim();
+
+    // Clean up whitespace
+    response = response.replace(/\s+/g, ' ').trim();
+
+    // Make it more conversational
+    if (response.length > 20) {
+      // Add conversational starters randomly
+      const starters = [
+        "I found that ",
+        "Looking at the documents, ",
+        "From what I can see, ",
+        "The documents show that ",
+        "Here's what I discovered: "
+      ];
       
-      // Only include the source if it has relevant excerpts
-      if (relevantExcerpts && relevantExcerpts.length > 0) {
-        source.excerpts = relevantExcerpts.slice(0, 2); // Limit to top 2 most relevant
-        return true;
+      // Only add starter if response doesn't already start conversationally
+      if (!response.match(/^(I |Looking |From |Here's |The documents)/i)) {
+        const randomStarter = starters[Math.floor(Math.random() * starters.length)];
+        response = randomStarter.toLowerCase() + response;
       }
-      
-      return false;
-    });
+    }
+
+    return response.charAt(0).toUpperCase() + response.slice(1);
+  };
+
+  // Check if document is already open in a tab
+  const findExistingTab = (documentId: string, documentTitle: string) => {
+    return openTabs.find(tab => 
+      tab.document_id === documentId || 
+      tab.document_title === documentTitle ||
+      tab.title === documentTitle
+    );
   };
 
   const handleViewDocument = (source: any, query: string, aiResponse: string) => {
     console.log('Opening document with highlights:', { source, query, aiResponse });
+    
+    // Check if document is already open
+    const existingTab = findExistingTab(source.document_id, source.document_title);
+    
+    if (existingTab && onSwitchToTab) {
+      console.log('Document already open, switching to existing tab:', existingTab);
+      onSwitchToTab(existingTab.id);
+      return;
+    }
     
     // Create proper highlights from the excerpts
     const highlights = source.excerpts?.map((excerpt: any) => ({
@@ -176,56 +208,18 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     }
   };
 
-  // Format AI response like a professional legal secretary
-  const formatLegalSecretaryResponse = (fullResponse: string) => {
-    // Remove all technical jargon and metadata
-    let response = fullResponse
-      .replace(/Based on (?:the )?(?:provided )?documents?,?\s*/gi, '')
-      .replace(/According to (?:the )?(?:provided )?documents?,?\s*/gi, '')
-      .replace(/Document:\s*[^|]+\|\s*Location:\s*[^|]+\|\s*Lines:\s*[^\n\r.]+/gi, '')
-      .replace(/Document:\s*[^|]+\|\s*Page\s*\d+/gi, '')
-      .replace(/\(.*?Chunk \d+.*?\)/gi, '')
-      .replace(/\(Document \d+.*?\)/gi, '')
-      .replace(/Location:\s*[^\n\r.]+/gi, '')
-      .replace(/Lines:\s*[^\n\r.]+/gi, '')
-      .replace(/as referenced in.*?,/gi, '')
-      .replace(/This information is explicitly stated in.*?\./gi, '')
-      .replace(/If you (?:require|need) further details.*?please let me know\.?/gi, '')
-      .replace(/Review the highlighted sources.*?specific aspect\??/gi, '')
-      .replace(/Would you like me to elaborate.*?\??/gi, '')
-      .trim();
-
-    // Clean up any remaining technical artifacts
-    response = response
-      .replace(/^\s*[-•]\s*/gm, '') // Remove bullet points at start of lines
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .trim();
-
-    // If the response is very short, return as is
-    if (response.length < 100) {
-      return response;
-    }
-
-    // Split into sentences and clean up
-    const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 10);
-    
-    // For longer responses, keep it concise but complete
-    const maxSentences = 3;
-    const finalResponse = sentences.slice(0, maxSentences).join('. ').trim();
-    
-    return finalResponse + (finalResponse.endsWith('.') ? '' : '.');
-  };
-
   const formatDocumentReference = (source: any) => {
     const fileName = source.document_file_name || source.document_title;
     return fileName;
   };
 
   const formatAIResponse = (content: string, sources: any[], documentCount: number, query: string) => {
-    const formattedContent = formatLegalSecretaryResponse(content);
+    const formattedContent = formatConversationalResponse(content);
     
     // Filter sources to only show documents actually referenced by AI
-    const relevantSources = filterRelevantSources(sources, content, query);
+    const relevantSources = sources?.filter(source => {
+      return source.excerpts && source.excerpts.length > 0;
+    }) || [];
     
     return (
       <div className="space-y-3">
@@ -236,16 +230,16 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
         {relevantSources && relevantSources.length > 0 && (
           <div className="mt-3 space-y-2">
             <div className="text-xs font-medium text-gray-600 mb-2">
-              Referenced in:
+              References:
             </div>
 
             {relevantSources.map((source, sourceIndex) => (
               <div key={sourceIndex} className="space-y-1">
-                {source.excerpts && source.excerpts.map((excerpt: any, excerptIndex: number) => (
+                {source.excerpts && source.excerpts.slice(0, 2).map((excerpt: any, excerptIndex: number) => (
                   <div key={excerptIndex} className="bg-yellow-50 border-l-2 border-yellow-300 p-2 rounded-r text-xs">
                     <button
                       onClick={() => handleViewDocument(source, query, content)}
-                      className="w-full text-left hover:bg-yellow-100 rounded p-1 -m-1"
+                      className="w-full text-left hover:bg-yellow-100 rounded p-1 -m-1 transition-colors"
                     >
                       <div className="text-gray-600 mb-1 flex items-center">
                         <FileText className="h-3 w-3 mr-1" />
@@ -253,7 +247,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
                         {excerpt.page && ` • Page ${excerpt.page}`}
                       </div>
                       <div className="text-blue-700 font-medium">
-                        "{excerpt.text.length > 120 ? excerpt.text.substring(0, 120) + '...' : excerpt.text}"
+                        "{excerpt.text.length > 100 ? excerpt.text.substring(0, 100) + '...' : excerpt.text}"
                       </div>
                     </button>
                   </div>
@@ -274,6 +268,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       role: 'user',
       content: inputValue.trim(),
       timestamp: new Date(),
+      query: inputValue.trim(), // Store the query in the user message
     };
 
     updateMessages(prev => [...prev, userMessage]);
@@ -283,6 +278,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.overflowY = 'hidden';
     }
     
     setIsLoading(true);
@@ -352,20 +348,12 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Header - Fixed at top */}
-      <div className="p-4 border-b bg-gray-50 rounded-t-lg flex items-center justify-between flex-shrink-0">
+      {/* Header - Fixed at top (removed close button as requested) */}
+      <div className="p-4 border-b bg-gray-50 rounded-t-lg flex items-center flex-shrink-0">
         <div className="flex items-center">
           <MessageCircle className="mr-2 h-5 w-5 text-blue-600" />
           <span className="font-semibold text-gray-900">Chat - {client.name}</span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onToggle}
-          className="h-8 w-8 p-0"
-        >
-          <X className="h-4 w-4" />
-        </Button>
       </div>
 
       {/* Messages - Scrollable area */}
@@ -407,7 +395,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
                 <Card className="max-w-[80%] p-3 bg-gray-100">
                   <div className="flex items-center text-sm text-gray-600">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    AI is analyzing {client.name}'s documents...
+                    I'm looking through {client.name}'s documents...
                   </div>
                 </Card>
               </div>
@@ -417,7 +405,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
         </ScrollArea>
       </div>
 
-      {/* Input - Fixed at bottom with auto-expanding textarea */}
+      {/* Input - Fixed at bottom with properly auto-expanding textarea */}
       <div className="p-4 border-t bg-white flex-shrink-0">
         <div className="flex gap-2 items-end">
           <Textarea
@@ -427,8 +415,9 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
             onKeyPress={handleKeyPress}
             placeholder={`Ask about ${client.name}'s documents or folders...`}
             disabled={isLoading}
-            className="flex-1 resize-none min-h-[40px] max-h-[200px]"
+            className="flex-1 resize-none min-h-[40px] overflow-y-hidden"
             rows={1}
+            style={{ height: '40px' }}
           />
           <Button 
             onClick={handleSendMessage}
