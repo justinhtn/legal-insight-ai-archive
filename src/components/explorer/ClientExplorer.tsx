@@ -58,9 +58,9 @@ const ClientExplorer: React.FC<ClientExplorerProps> = ({ onUpload, onRefresh, on
   }));
 
   return (
-    <>
-      {/* Client Sidebar - Always visible */}
-      <div className="w-64 flex-shrink-0 bg-gray-50 border-r border-gray-200">
+    <div className="h-full flex bg-gray-50">
+      {/* Client Sidebar */}
+      <div className="w-64 flex-shrink-0 border-r border-gray-200">
         <ClientSidebar
           clients={clients}
           selectedClientId={selectedClientId}
@@ -72,7 +72,7 @@ const ClientExplorer: React.FC<ClientExplorerProps> = ({ onUpload, onRefresh, on
 
       {/* File Panel - Only show when client is selected */}
       {selectedClientId && (
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <FilePanel
             files={fileItems}
             folders={folders}
@@ -88,7 +88,7 @@ const ClientExplorer: React.FC<ClientExplorerProps> = ({ onUpload, onRefresh, on
           />
         </div>
       )}
-    </>
+    </div>
   );
 };
 
