@@ -574,12 +574,12 @@ All colors MUST be HSL.
   display: flex;
   flex-direction: column;
   min-width: 0;
-  margin-right: 64px;
+  // margin-right: 64px;
   transition: margin-right 0.3s ease;
 }
 
 .main-content.chat-open {
-  margin-right: 464px;
+  // margin-right: 464px;
 }
 
 .document-content {
