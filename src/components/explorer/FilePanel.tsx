@@ -1,10 +1,10 @@
 
 import React from 'react';
-import { Folder, File, Upload, RefreshCw, ChevronRight, Home } from 'lucide-react';
+import { Upload, RefreshCw, ChevronRight, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Folder as FolderType } from '@/services/clientService';
+import FileTableView from '../finder/FileTableView';
 
 interface FileItem {
   id: string;
@@ -67,141 +67,118 @@ const FilePanel: React.FC<FilePanelProps> = ({
 
   const breadcrumbs = generateBreadcrumbs();
 
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return '';
-    const kb = bytes / 1024;
-    const mb = kb / 1024;
-    if (mb >= 1) return `${mb.toFixed(1)} MB`;
-    return `${kb.toFixed(1)} KB`;
+  // Combine folders and files for the table view
+  const allItems: FileItem[] = [
+    ...folders.map(folder => ({
+      id: folder.id,
+      name: folder.name,
+      type: 'folder' as const,
+      modified: folder.updated_at,
+      size: undefined
+    })),
+    ...files
+  ];
+
+  const handleItemClick = (item: FileItem) => {
+    if (item.type === 'folder') {
+      onFolderClick(item.id);
+    } else {
+      onFileClick?.(item);
+    }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+  const handleItemDoubleClick = (item: FileItem) => {
+    if (item.type === 'folder') {
+      onFolderClick(item.id);
+    } else {
+      onFileClick?.(item);
+    }
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header with Breadcrumbs */}
-      <div className="p-4 border-b bg-gray-50 flex-shrink-0">
-        {/* Breadcrumb Navigation */}
-        <div className="flex items-center space-x-2 mb-4">
-          <Home className="h-4 w-4 text-gray-500" />
-          {breadcrumbs.map((crumb, index) => (
-            <React.Fragment key={crumb.id || 'root'}>
-              {index > 0 && <ChevronRight className="h-4 w-4 text-gray-400" />}
-              <button
-                onClick={() => crumb.id ? onFolderClick(crumb.id) : onNavigateToRoot()}
-                className={`text-sm ${
-                  index === breadcrumbs.length - 1
-                    ? 'text-gray-900 font-medium'
-                    : 'text-blue-600 hover:text-blue-800 hover:underline'
-                }`}
-              >
-                {crumb.name}
-              </button>
-            </React.Fragment>
-          ))}
-        </div>
-
-        {/* Action Buttons */}
+    <div className="h-full flex flex-col bg-white">
+      {/* Toolbar */}
+      <div className="px-6 py-3 border-b bg-gray-50/50 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Files & Folders
-          </h3>
-          <div className="flex space-x-2">
+          <div className="flex items-center space-x-4">
+            {/* Breadcrumb Navigation */}
+            <div className="flex items-center space-x-1 text-sm">
+              <Home className="h-4 w-4 text-gray-500" />
+              {breadcrumbs.map((crumb, index) => (
+                <React.Fragment key={crumb.id || 'root'}>
+                  {index > 0 && <ChevronRight className="h-3 w-3 text-gray-400" />}
+                  <button
+                    onClick={() => crumb.id ? onFolderClick(crumb.id) : onNavigateToRoot()}
+                    className={`px-1 py-0.5 rounded text-sm transition-colors ${
+                      index === breadcrumbs.length - 1
+                        ? 'text-gray-900 font-medium'
+                        : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                    }`}
+                  >
+                    {crumb.name}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-2">
             <Button
               onClick={onRefresh}
-              variant="outline"
+              variant="ghost"
               size="sm"
               disabled={isLoading}
+              className="h-8 px-2"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
             <Button
               onClick={onUpload}
               size="sm"
-              className="flex items-center space-x-2"
+              className="h-8 px-3"
             >
-              <Upload className="h-4 w-4" />
-              <span>Upload</span>
+              <Upload className="h-4 w-4 mr-1" />
+              Upload
             </Button>
           </div>
         </div>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="p-4 space-y-2">
-            {isLoading ? (
-              <div className="text-center py-8">
-                <RefreshCw className="h-6 w-6 animate-spin mx-auto text-gray-400" />
-                <p className="text-gray-500 mt-2">Loading files and folders...</p>
-              </div>
-            ) : (
-              <>
-                {/* Folders */}
-                {folders.map((folder) => (
-                  <Card
-                    key={folder.id}
-                    className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => onFolderClick(folder.id)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center space-x-3">
-                        <Folder className="h-5 w-5 text-blue-500" />
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{folder.name}</p>
-                          <p className="text-sm text-gray-500">
-                            Modified {formatDate(folder.updated_at)}
-                          </p>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-gray-400" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {/* Files */}
-                {files.map((file) => (
-                  <Card
-                    key={file.id}
-                    className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => onFileClick?.(file)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center space-x-3">
-                        <File className="h-5 w-5 text-gray-500" />
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{file.name}</p>
-                          <p className="text-sm text-gray-500">
-                            {formatFileSize(file.size)} • Modified {formatDate(file.modified)}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {/* Empty State */}
-                {folders.length === 0 && files.length === 0 && (
-                  <div className="text-center py-8">
-                    <Folder className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      {selectedFolderId ? 'Folder is empty' : 'No files or folders'}
-                    </h3>
-                    <p className="text-gray-600">
-                      {selectedFolderId 
-                        ? 'Upload files to this folder to get started'
-                        : 'Upload your first document or create a folder to organize your files'
-                      }
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
+      <div className="flex-1 overflow-hidden p-6">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <RefreshCw className="h-6 w-6 animate-spin mx-auto text-gray-400 mb-2" />
+              <p className="text-gray-500 text-sm">Loading files and folders...</p>
+            </div>
           </div>
-        </ScrollArea>
+        ) : allItems.length > 0 ? (
+          <FileTableView
+            items={allItems}
+            selectedItems={[]} // You can implement selection state if needed
+            onItemClick={handleItemClick}
+            onItemDoubleClick={handleItemDoubleClick}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Home className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {selectedFolderId ? 'Folder is empty' : 'No files or folders'}
+              </h3>
+              <p className="text-gray-500 text-sm max-w-sm">
+                {selectedFolderId 
+                  ? 'Upload files to this folder to get started'
+                  : 'Upload your first document or create a folder to organize your files'
+                }
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

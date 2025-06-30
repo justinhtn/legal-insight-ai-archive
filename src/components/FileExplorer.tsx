@@ -418,12 +418,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
   const currentChatState = getCurrentChatState();
 
   return (
-    <div className="h-screen bg-gray-50 p-4 overflow-hidden">
-      {/* Gmail-style responsive layout */}
-      <div className="flex h-full gap-4 relative">
+    <div className="h-screen bg-gray-100 overflow-hidden">
+      {/* Finder-style layout with proper proportions */}
+      <div className="flex h-full">
         
-        {/* Client List - Fixed width (15%) */}
-        <div className="w-1/6 flex-shrink-0 h-full overflow-hidden">
+        {/* Client List - Narrower sidebar (220px) */}
+        <div className="w-56 flex-shrink-0 h-full overflow-hidden">
           <ClientSidebar
             clients={clients}
             selectedClientId={selectedClient?.id}
@@ -434,7 +434,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
         </div>
 
         {/* Main Content - Responsive width based on chat state */}
-        <div className={`bg-white rounded-lg shadow-sm border flex flex-col min-w-0 h-full overflow-hidden transition-all duration-300 ${
+        <div className={`bg-white flex flex-col min-w-0 h-full overflow-hidden transition-all duration-300 ${
           currentChatState.isOpen ? 'flex-1 mr-96' : 'flex-1'
         }`}>
           {selectedClient ? (
@@ -479,12 +479,15 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center bg-gray-50">
               <div className="text-center">
+                <div className="w-20 h-20 mx-auto mb-6 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <MessageCircle className="h-10 w-10 text-gray-400" />
+                </div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">
                   Welcome to Your Legal Archive
                 </h2>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 mb-6 max-w-md">
                   Select a client from the sidebar to view their documents and folders
                 </p>
                 {clients.length === 0 && !isLoadingClients && (
@@ -517,7 +520,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
 
         {/* Chat Panel - Fixed position, slides in from right */}
         {selectedClient && (
-          <div className={`fixed right-4 top-4 bottom-4 w-96 bg-white rounded-lg shadow-lg border transform transition-transform duration-300 z-50 ${
+          <div className={`fixed right-0 top-0 bottom-0 w-96 bg-white shadow-lg border-l transform transition-transform duration-300 z-50 ${
             currentChatState.isOpen ? 'translate-x-0' : 'translate-x-full'
           }`}>
             {/* Chat panel close button */}
