@@ -183,45 +183,71 @@ All colors MUST be HSL.
   transition-duration: 150ms;
 }
 
-/* Browser-like document tabs */
+/* Replace the existing document tab styles with these Chrome-style tabs */
+
+/* Browser-like document tabs - Chrome Light Mode Style */
 .document-tabs {
   display: flex;
   align-items: flex-end;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 0 1rem;
+  background: #f1f3f4;
+  border-bottom: 1px solid #dadce0;
+  padding: 0;
   overflow-x: auto;
+  overflow-y: hidden;
+  height: 40px;
 }
 
 .document-tab {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  margin-right: 2px;
-  background: #e5e7eb;
-  border: 1px solid #d1d5db;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  color: #6b7280;
-  font-size: 0.875rem;
+  gap: 8px;
+  padding: 0 16px;
+  margin: 0;
+  background: #f1f3f4;
+  border: none;
+  border-right: 1px solid #dadce0;
+  color: #5f6368;
+  font-size: 13px;
+  font-weight: 400;
   cursor: pointer;
   transition: all 0.15s ease;
-  max-width: 200px;
+  max-width: 240px;
   min-width: 120px;
+  height: 40px;
+  white-space: nowrap;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
-.document-tab:hover {
-  background: #d1d5db;
-  color: #374151;
+.document-tab:hover:not(.active) {
+  background: #e8eaed;
+  color: #3c4043;
 }
 
 .document-tab.active {
-  background: white;
-  color: #111827;
-  border-color: #d1d5db;
+  background: #ffffff;
+  color: #202124;
+  font-weight: 500;
+  border-bottom: 1px solid #ffffff;
   z-index: 1;
+}
+
+/* Active tab bottom border override */
+.document-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #ffffff;
+  z-index: 2;
+}
+
+.document-tab .tab-icon {
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .document-tab .tab-title {
@@ -229,33 +255,97 @@ All colors MUST be HSL.
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .document-tab .close-button {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 2px;
-  opacity: 0.6;
+  font-size: 12px;
+  color: #5f6368;
+  flex-shrink: 0;
+  margin-left: 4px;
   transition: all 0.15s ease;
 }
 
 .document-tab .close-button:hover {
-  opacity: 1;
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: #dadce0;
+  color: #202124;
 }
 
+.document-tab.active .close-button {
+  color: #5f6368;
+}
+
+.document-tab.active .close-button:hover {
+  background: #e8eaed;
+  color: #202124;
+}
+
+/* Remove the old overview-tab special styling since it should match other tabs */
 .overview-tab {
-  background: #3b82f6;
-  color: white;
-  border-color: #2563eb;
+  /* Remove special styling - let it use the same as other tabs */
 }
 
 .overview-tab:hover {
-  background: #2563eb;
+  /* Remove special styling - let it use the same as other tabs */
+}
+
+/* Tab separator lines between inactive tabs */
+.document-tab:not(.active):not(:hover) + .document-tab:not(.active):not(:hover)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: #dadce0;
+}
+
+/* Remove separator for active tabs or when hovering */
+.document-tab.active + .document-tab::before,
+.document-tab + .document-tab.active::before,
+.document-tab:hover + .document-tab::before,
+.document-tab + .document-tab:hover::before {
+  display: none;
+}
+
+/* Hide close button on narrow screens */
+@media (max-width: 1200px) {
+  .document-tab {
+    min-width: 100px;
+  }
+  
+  .document-tab .close-button {
+    display: none;
+  }
+  
+  .document-tab:hover .close-button {
+    display: flex;
+  }
+}
+
+/* Scrollbar for tab overflow */
+.document-tabs::-webkit-scrollbar {
+  height: 0;
+}
+
+/* Focus states for accessibility */
+.document-tab:focus {
+  outline: 2px solid #4285f4;
+  outline-offset: -2px;
+}
+
+.document-tab .close-button:focus {
+  outline: 2px solid #4285f4;
+  outline-offset: -1px;
 }
 
 /* Unified Explorer Styles - Finder/VS Code inspired */
