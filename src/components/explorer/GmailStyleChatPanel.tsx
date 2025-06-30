@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Loader2, FileText, X } from 'lucide-react';
+import { Send, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
@@ -295,126 +295,81 @@ const GmailStyleChatPanel: React.FC<GmailStyleChatPanelProps> = ({
   }
 
   return (
-    <>
-      {/* Toggle Button - Fixed position when collapsed */}
-      {!isOpen && (
-        <div className="fixed top-20 right-4 z-50">
-          <Button
-            onClick={onToggle}
-            variant="default"
-            size="icon"
-            className="w-12 h-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
-          >
-            <MessageCircle className="h-6 w-6 text-white" />
-          </Button>
-        </div>
-      )}
-
-      {/* Chat Panel - Slides in from right */}
-      <div className={`fixed top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-lg z-40 transform transition-transform duration-300 ease-in-out ${
-        isOpen ? 'translate-x-0' : 'translate-x-full'
-      }`}>
-        <div className="h-full flex flex-col">
-          {/* Header */}
-          <div className="p-4 border-b bg-gray-50 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center">
-              <MessageCircle className="mr-2 h-5 w-5 text-blue-600" />
-              <span className="font-semibold text-gray-900">{client.name}</span>
-            </div>
-            <Button
-              onClick={onToggle}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto">
-            <ScrollArea className="h-full p-4">
-              <div className="space-y-4">
-                {filteredMessages.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <p className="font-medium">Start a conversation about {client.name}'s case</p>
-                    <p className="text-sm">Ask questions about documents, deadlines, or case details</p>
-                    <p className="text-xs mt-2 text-gray-400">
-                      Try: "What folders do I have?" or "What were the ages of the two minors?"
-                    </p>
-                  </div>
-                )}
-                
-                {filteredMessages.map((message) => (
-                  <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <Card className={`max-w-[90%] p-4 ${
-                      message.role === 'user' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-100'
-                    }`}>
-                      {message.role === 'assistant' && message.sources ? (
-                        formatAIResponse(message.content, message.sources, message.documentCount || 0, message.query || '')
-                      ) : (
-                        <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                      )}
-                      
-                      <div className="text-xs opacity-70 mt-3 pt-2 border-t border-gray-200">
-                        {message.timestamp.toLocaleTimeString()}
-                      </div>
-                    </Card>
-                  </div>
-                ))}
-                
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <Card className="max-w-[80%] p-3 bg-gray-100">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        I'm looking through {client.name}'s documents...
-                      </div>
-                    </Card>
-                  </div>
-                )}
+    <div className="h-full flex flex-col">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto">
+        <ScrollArea className="h-full p-4">
+          <div className="space-y-4">
+            {filteredMessages.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <p className="font-medium">Start a conversation about {client.name}'s case</p>
+                <p className="text-sm">Ask questions about documents, deadlines, or case details</p>
+                <p className="text-xs mt-2 text-gray-400">
+                  Try: "What folders do I have?" or "What were the ages of the two minors?"
+                </p>
               </div>
-              <div ref={messagesEndRef} />
-            </ScrollArea>
+            )}
+            
+            {filteredMessages.map((message) => (
+              <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <Card className={`max-w-[90%] p-4 ${
+                  message.role === 'user' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-100'
+                }`}>
+                  {message.role === 'assistant' && message.sources ? (
+                    formatAIResponse(message.content, message.sources, message.documentCount || 0, message.query || '')
+                  ) : (
+                    <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  )}
+                  
+                  <div className="text-xs opacity-70 mt-3 pt-2 border-t border-gray-200">
+                    {message.timestamp.toLocaleTimeString()}
+                  </div>
+                </Card>
+              </div>
+            ))}
+            
+            {isLoading && (
+              <div className="flex justify-start">
+                <Card className="max-w-[80%] p-3 bg-gray-100">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    I'm looking through {client.name}'s documents...
+                  </div>
+                </Card>
+              </div>
+            )}
           </div>
-
-          {/* Input */}
-          <div className="p-4 border-t bg-white flex-shrink-0">
-            <div className="flex gap-2 items-end">
-              <Textarea
-                ref={textareaRef}
-                value={inputValue}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyPress}
-                placeholder={`Ask about ${client.name}'s documents...`}
-                disabled={isLoading}
-                className="flex-1 resize-none min-h-[40px] max-h-[120px] overflow-y-hidden"
-                rows={1}
-                style={{ height: '40px' }}
-              />
-              <Button 
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading}
-                size="icon"
-                className="flex-shrink-0"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+          <div ref={messagesEndRef} />
+        </ScrollArea>
       </div>
 
-      {/* Backdrop overlay when open */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-20 z-30"
-          onClick={onToggle}
-        />
-      )}
-    </>
+      {/* Input */}
+      <div className="p-4 border-t bg-white flex-shrink-0">
+        <div className="flex gap-2 items-end">
+          <Textarea
+            ref={textareaRef}
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyPress}
+            placeholder={`Ask about ${client.name}'s documents...`}
+            disabled={isLoading}
+            className="flex-1 resize-none min-h-[40px] max-h-[120px] overflow-y-hidden"
+            rows={1}
+            style={{ height: '40px' }}
+          />
+          <Button 
+            onClick={handleSendMessage}
+            disabled={!inputValue.trim() || isLoading}
+            size="icon"
+            className="flex-shrink-0"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 };
 

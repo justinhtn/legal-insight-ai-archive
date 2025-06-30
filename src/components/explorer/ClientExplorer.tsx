@@ -59,7 +59,7 @@ const ClientExplorer: React.FC<ClientExplorerProps> = ({ onUpload, onRefresh, on
 
   return (
     <>
-      {/* Client Sidebar */}
+      {/* Client Sidebar - Always visible */}
       <div className="w-64 flex-shrink-0 bg-gray-50 border-r border-gray-200">
         <ClientSidebar
           clients={clients}
@@ -70,22 +70,24 @@ const ClientExplorer: React.FC<ClientExplorerProps> = ({ onUpload, onRefresh, on
         />
       </div>
 
-      {/* File Panel */}
-      <div className="flex-1">
-        <FilePanel
-          files={fileItems}
-          folders={folders}
-          selectedFolderId={selectedFolderId}
-          folderName={selectedFolder?.name}
-          onUpload={handleUploadClick}
-          isLoading={foldersLoading || documentsLoading}
-          onRefresh={onRefresh}
-          onFileClick={handleFileClick}
-          onFolderClick={handleFolderClick}
-          onNavigateToRoot={handleNavigateToRoot}
-          allFolders={folders}
-        />
-      </div>
+      {/* File Panel - Only show when client is selected */}
+      {selectedClientId && (
+        <div className="flex-1">
+          <FilePanel
+            files={fileItems}
+            folders={folders}
+            selectedFolderId={selectedFolderId}
+            folderName={selectedFolder?.name}
+            onUpload={handleUploadClick}
+            isLoading={foldersLoading || documentsLoading}
+            onRefresh={onRefresh}
+            onFileClick={handleFileClick}
+            onFolderClick={handleFolderClick}
+            onNavigateToRoot={handleNavigateToRoot}
+            allFolders={folders}
+          />
+        </div>
+      )}
     </>
   );
 };

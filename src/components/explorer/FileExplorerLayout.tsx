@@ -8,7 +8,6 @@ import ChatIntegration from './ChatIntegration';
 import DocumentUploadModal from '../DocumentUploadModal';
 import { useFileExplorer } from '@/contexts/FileExplorerContext';
 import { useDocumentTabs } from '@/hooks/useDocumentTabs';
-import { useClientNavigation } from '@/hooks/useClientNavigation';
 import { useChatIntegration } from '@/hooks/useChatIntegration';
 import { useQuery } from '@tanstack/react-query';
 import { getClients, getFolders } from '@/services/clientService';
@@ -63,41 +62,35 @@ const FileExplorerLayout: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-white">
-      <div className={`flex-1 flex overflow-hidden transition-all duration-300 ${
-        isChatOpen ? 'mr-80' : ''
-      }`}>
-        {selectedClientId ? (
-          <>
-            {/* Document Tabs */}
-            <DocumentTabManager />
+      {/* Document Tabs - Always visible when there are open tabs */}
+      {openTabs.length > 0 && <DocumentTabManager />}
 
-            {/* Main Content Area */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 flex overflow-hidden">
-                <ClientExplorer
-                  onUpload={handleUpload}
-                  onRefresh={handleRefresh}
-                  onNewClient={handleNewClient}
-                />
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Always show the client explorer */}
+        <ClientExplorer
+          onUpload={handleUpload}
+          onRefresh={handleRefresh}
+          onNewClient={handleNewClient}
+        />
 
-                {/* Document Viewer */}
-                {openTabs.length > 0 && !showOverview && activeTabId && (
-                  <div className="w-1/2 border-l border-gray-200 bg-white">
-                    <TabbedDocumentViewer
-                      tabs={openTabs}
-                      activeTabId={activeTabId}
-                      onTabChange={() => {}} // Handled by context
-                      onTabClose={() => {}} // Handled by context
-                      onShowOverview={() => {}} // Handled by context
-                      showOverview={showOverview}
-                      showTabsOnly={false}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        ) : (
+        {/* Document Viewer - Only show when there are open tabs and not showing overview */}
+        {openTabs.length > 0 && !showOverview && activeTabId && (
+          <div className="w-1/2 border-l border-gray-200 bg-white">
+            <TabbedDocumentViewer
+              tabs={openTabs}
+              activeTabId={activeTabId}
+              onTabChange={() => {}} // Handled by context
+              onTabClose={() => {}} // Handled by context
+              onShowOverview={() => {}} // Handled by context
+              showOverview={showOverview}
+              showTabsOnly={false}
+            />
+          </div>
+        )}
+
+        {/* Welcome message when no client is selected */}
+        {!selectedClientId && (
           <div className="flex-1 flex items-center justify-center bg-white">
             <div className="text-center">
               <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
@@ -110,10 +103,14 @@ const FileExplorerLayout: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
 
-      {/* Chat Integration */}
-      <ChatIntegration selectedClient={selectedClient || null} />
+        {/* Chat Panel - True flex panel that pushes content */}
+        {isChatOpen && (
+          <div className="w-80 flex-shrink-0 border-l border-gray-200 bg-white">
+            <ChatIntegration selectedClient={selectedClient || null} />
+          </div>
+        )}
+      </div>
 
       {/* Upload Modal */}
       {showUploadModal && (
