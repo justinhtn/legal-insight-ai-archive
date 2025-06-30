@@ -6,7 +6,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Client, Folder, getFolders } from '@/services/clientService';
 import { useToast } from '@/hooks/use-toast';
 import ClientInfoPanel from '../finder/ClientInfoPanel';
-import FolderPanel from './FolderPanel';
 import FilePanel from './FilePanel';
 
 interface FileItem {
@@ -117,6 +116,15 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
     loadFiles();
   };
 
+  const handleFolderClick = (folderId: string) => {
+    onFolderSelect(folderId);
+  };
+
+  // Filter folders based on current selection
+  const displayFolders = selectedFolderId 
+    ? folders.filter(f => f.parent_folder_id === selectedFolderId)
+    : folders.filter(f => !f.parent_folder_id);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Client Info Section with Chat Button - Fixed at top */}
@@ -140,28 +148,19 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
       </div>
 
       {/* Scrollable content area */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Folders Section */}
-        <div className="border-b">
-          <FolderPanel
-            folders={folders}
-            selectedFolderId={selectedFolderId}
-            onFolderSelect={onFolderSelect}
-            onNewFolder={onNewFolder}
-            isLoading={isLoadingFolders}
-          />
-        </div>
-
-        {/* Files Section */}
-        <div className="min-h-0 flex-1">
+      <div className="flex-1 overflow-hidden">
+        {/* Files and Folders Section - Combined */}
+        <div className="h-full">
           <FilePanel
             files={files}
+            folders={displayFolders}
             selectedFolderId={selectedFolderId}
             folderName={selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name : null}
             onUpload={onUpload}
-            isLoading={isLoadingFiles}
+            isLoading={isLoadingFiles || isLoadingFolders}
             onRefresh={refreshData}
             onFileClick={onOpenDocument}
+            onFolderClick={handleFolderClick}
           />
         </div>
       </div>

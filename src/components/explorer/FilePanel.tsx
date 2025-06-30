@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { FileText, Upload, RefreshCw, Folder } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, Upload, RefreshCw, Folder, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
@@ -14,23 +14,33 @@ interface FileItem {
 
 interface FilePanelProps {
   files: FileItem[];
+  folders: any[];
   selectedFolderId?: string;
   folderName?: string | null;
   onUpload: () => void;
   isLoading?: boolean;
   onRefresh: () => void;
   onFileClick?: (file: FileItem) => void;
+  onFolderClick?: (folderId: string) => void;
 }
+
+type SortField = 'name' | 'modified' | 'size' | 'kind';
+type SortDirection = 'asc' | 'desc';
 
 const FilePanel: React.FC<FilePanelProps> = ({
   files,
+  folders,
   selectedFolderId,
   folderName,
   onUpload,
   isLoading = false,
   onRefresh,
-  onFileClick
+  onFileClick,
+  onFolderClick
 }) => {
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return '--';
     if (bytes < 1024) return bytes + ' B';
@@ -62,16 +72,75 @@ const FilePanel: React.FC<FilePanelProps> = ({
     });
   };
 
-  const getFileKind = (file: FileItem) => {
-    if (file.type === 'folder') return 'Folder';
-    const extension = file.name.split('.').pop()?.toUpperCase();
+  const getFileKind = (item: FileItem | any) => {
+    if (item.type === 'folder') return 'Folder';
+    const extension = item.name.split('.').pop()?.toUpperCase();
     return extension || 'Document';
   };
 
-  const handleFileClick = (file: FileItem) => {
-    if (onFileClick && file.type === 'file') {
-      onFileClick(file);
+  const handleItemClick = (item: FileItem | any) => {
+    if (item.type === 'folder') {
+      onFolderClick?.(item.id);
+    } else if (onFileClick && item.type === 'file') {
+      onFileClick(item);
     }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Combine folders and files into one list
+  const allItems = [
+    ...folders.map(folder => ({
+      ...folder,
+      type: 'folder' as const,
+      modified: folder.updated_at || folder.created_at
+    })),
+    ...files
+  ];
+
+  // Sort items
+  const sortedItems = [...allItems].sort((a, b) => {
+    let aValue: any;
+    let bValue: any;
+
+    switch (sortField) {
+      case 'name':
+        aValue = a.name.toLowerCase();
+        bValue = b.name.toLowerCase();
+        break;
+      case 'modified':
+        aValue = new Date(a.modified);
+        bValue = new Date(b.modified);
+        break;
+      case 'size':
+        aValue = a.size || 0;
+        bValue = b.size || 0;
+        break;
+      case 'kind':
+        aValue = getFileKind(a);
+        bValue = getFileKind(b);
+        break;
+      default:
+        return 0;
+    }
+
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? 
+      <ChevronUp className="h-3 w-3 inline ml-1" /> : 
+      <ChevronDown className="h-3 w-3 inline ml-1" />;
   };
 
   return (
@@ -80,7 +149,7 @@ const FilePanel: React.FC<FilePanelProps> = ({
       <div className="p-4 border-b bg-white flex-shrink-0">
         <div className="flex items-center justify-between">
           <h3 className="font-medium text-gray-900">
-            Files {selectedFolderId && folderName && (
+            All Items {selectedFolderId && folderName && (
               <span className="text-gray-500">in {folderName}</span>
             )}
           </h3>
@@ -111,14 +180,14 @@ const FilePanel: React.FC<FilePanelProps> = ({
         {isLoading ? (
           <div className="text-center py-12 text-gray-500">
             <div className="animate-spin w-6 h-6 border-2 border-gray-300 border-t-blue-600 rounded-full mx-auto mb-2"></div>
-            Loading files...
+            Loading items...
           </div>
-        ) : files.length === 0 ? (
+        ) : sortedItems.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <FileText className="mx-auto h-16 w-16 text-gray-300 mb-4" />
-            <p className="font-medium">No files yet</p>
+            <p className="font-medium">No items yet</p>
             <p className="text-sm mb-4">
-              {selectedFolderId ? 'This folder is empty' : 'No files in client root'}
+              {selectedFolderId ? 'This folder is empty' : 'No items in client root'}
             </p>
             <Button onClick={onUpload} variant="outline" size="sm">
               <Upload className="h-4 w-4 mr-2" />
@@ -129,39 +198,59 @@ const FilePanel: React.FC<FilePanelProps> = ({
           <Table>
             <TableHeader className="sticky top-0 bg-gray-50 z-10">
               <TableRow>
-                <TableHead className="text-left font-medium text-gray-700">Name</TableHead>
-                <TableHead className="text-left font-medium text-gray-700">Date Modified</TableHead>
-                <TableHead className="text-left font-medium text-gray-700">Size</TableHead>
-                <TableHead className="text-left font-medium text-gray-700">Kind</TableHead>
+                <TableHead 
+                  className="text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('name')}
+                >
+                  Name <SortIcon field="name" />
+                </TableHead>
+                <TableHead 
+                  className="text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('modified')}
+                >
+                  Date Modified <SortIcon field="modified" />
+                </TableHead>
+                <TableHead 
+                  className="text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('size')}
+                >
+                  Size <SortIcon field="size" />
+                </TableHead>
+                <TableHead 
+                  className="text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('kind')}
+                >
+                  Kind <SortIcon field="kind" />
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {files.map((file, index) => (
+              {sortedItems.map((item, index) => (
                 <TableRow
-                  key={file.id}
+                  key={item.id}
                   className={`hover:bg-blue-50 cursor-pointer transition-colors ${
                     index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-                  } ${file.type === 'file' ? 'hover:bg-blue-100' : ''}`}
-                  onClick={() => handleFileClick(file)}
+                  } hover:bg-blue-100`}
+                  onClick={() => handleItemClick(item)}
                 >
                   <TableCell className="py-2">
                     <div className="flex items-center">
-                      {file.type === 'folder' ? (
+                      {item.type === 'folder' ? (
                         <Folder className="h-4 w-4 text-blue-500 mr-3" />
                       ) : (
                         <FileText className="h-4 w-4 text-gray-500 mr-3" />
                       )}
-                      <span className="font-medium text-gray-900">{file.name}</span>
+                      <span className="font-medium text-gray-900">{item.name}</span>
                     </div>
                   </TableCell>
                   <TableCell className="py-2 text-gray-600 text-sm">
-                    {formatDate(file.modified)}
+                    {formatDate(item.modified)}
                   </TableCell>
                   <TableCell className="py-2 text-gray-600 text-sm">
-                    {formatFileSize(file.size)}
+                    {formatFileSize(item.size)}
                   </TableCell>
                   <TableCell className="py-2 text-gray-600 text-sm">
-                    {getFileKind(file)}
+                    {getFileKind(item)}
                   </TableCell>
                 </TableRow>
               ))}

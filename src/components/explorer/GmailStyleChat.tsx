@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Loader2, FileText, ExternalLink, X } from 'lucide-react';
+import { MessageCircle, Send, Loader2, FileText, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -79,22 +80,32 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     }
   };
 
-  const renderMarkdown = (text: string) => {
-    return text
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/• /g, '• ')
-      .replace(/\n/g, '<br/>');
+  const getConciseResponse = (fullResponse: string) => {
+    // Remove boilerplate phrases
+    let response = fullResponse
+      .replace(/If you require further details.*?please let me know\./gi, '')
+      .replace(/Review the highlighted sources.*?specific aspect\?/gi, '')
+      .replace(/Would you like me to elaborate.*?\?/gi, '')
+      .replace(/This information is explicitly stated in.*?\./gi, '')
+      .replace(/as referenced in.*?,/gi, '')
+      .replace(/\(.*?Chunk \d+.*?\)/gi, '')
+      .trim();
+
+    // Split into sentences and take first 1-2 sentences for simple questions
+    const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 10);
+    
+    // For very short answers (like numbers, dates), return as is
+    if (response.length < 50) {
+      return response;
+    }
+    
+    // For longer responses, limit to 2 sentences max
+    return sentences.slice(0, 2).join('. ').trim() + (sentences.length > 2 ? '.' : '');
   };
 
   const formatAIResponse = (content: string, sources: any[], documentCount: number, query: string) => {
-    const paragraphs = content.split('\n\n').filter(p => p.trim());
-    const limitedContent = paragraphs.slice(0, 3).join('\n\n');
+    const conciseContent = getConciseResponse(content);
     
-    const closingMessage = sources.length > 0 
-      ? "\n\nReview the highlighted sources below for complete details. Would you like me to elaborate on any specific aspect?"
-      : "";
-
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-blue-600 font-semibold">
@@ -102,16 +113,15 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
           <span>AI Analysis</span>
         </div>
         
-        <div className="text-xs text-gray-500 mb-3">
-          AI analysis based on {documentCount} relevant document sections
-        </div>
+        {documentCount > 0 && (
+          <div className="text-xs text-gray-500 mb-3">
+            Based on {documentCount} document section{documentCount > 1 ? 's' : ''}
+          </div>
+        )}
 
-        <div 
-          className="text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ 
-            __html: renderMarkdown(limitedContent + closingMessage)
-          }}
-        />
+        <div className="text-sm leading-relaxed">
+          {conciseContent}
+        </div>
 
         {sources && sources.length > 0 && (
           <div className="mt-6 space-y-3">
@@ -119,37 +129,25 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
               <span>📚</span>
               <span>Key Sources</span>
             </div>
-            
-            <div className="text-xs text-gray-500 mb-3">
-              Document excerpts that informed the AI analysis above
-            </div>
 
             {sources.map((source, sourceIndex) => (
               <div key={sourceIndex} className="border-l-4 border-gray-200 pl-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-gray-500" />
-                    <span className="font-medium text-gray-900">{source.document_title}</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-gray-500" />
+                  <button
                     onClick={() => handleViewDocument(source, query)}
-                    className="text-xs"
+                    className="font-medium text-blue-600 hover:text-blue-800 underline text-left"
                   >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    View with Highlights
-                  </Button>
+                    {source.document_title}
+                  </button>
                 </div>
                 
                 {source.excerpts && source.excerpts.length > 0 && (
-                  <div className="space-y-1 text-xs">
-                    {source.excerpts.slice(0, 3).map((excerpt: any, excerptIndex: number) => (
+                  <div className="space-y-1 text-xs ml-6">
+                    {source.excerpts.slice(0, 2).map((excerpt: any, excerptIndex: number) => (
                       <div key={excerptIndex} className="text-gray-700">
-                        <span className="font-medium">
-                          • {excerpt.page && `Page ${excerpt.page}`}{excerpt.lines && ` • ${excerpt.lines}`}:
-                        </span>
-                        <span className="ml-1">"{excerpt.text.substring(0, 80)}..."</span>
+                        <span className="font-medium">• </span>
+                        <span>"{excerpt.text.length > 100 ? excerpt.text.substring(0, 100) + '...' : excerpt.text}"</span>
                       </div>
                     ))}
                   </div>
