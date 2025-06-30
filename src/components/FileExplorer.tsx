@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { MessageCircle, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ClientSidebar from './explorer/ClientSidebar';
 import ClientContentPanel from './explorer/ClientContentPanel';
@@ -31,6 +32,8 @@ interface DocumentTabData {
     lines?: string;
   }>;
   query: string;
+  document_id?: string;
+  document_title?: string;
 }
 
 interface FileExplorerProps {
@@ -189,12 +192,37 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     return chatStates[selectedClient.id] || { isOpen: false, messages: [] };
   };
 
-  // Handle opening documents with highlights in tabs
+  // Smart tab management - check for existing tabs before creating new ones
   const handleOpenDocumentWithHighlights = async (document: any, highlights: any[], query: string) => {
     try {
       console.log('Opening document with highlights:', { document, highlights, query });
       
-      // Load full document content
+      // Check if document is already open in a tab
+      const existingTab = documentTabs.find(tab => 
+        tab.document_id === (document.id || document.document_id) ||
+        tab.document_title === document.document_title ||
+        tab.title === document.document_title
+      );
+      
+      if (existingTab) {
+        console.log('Document already open, switching to existing tab:', existingTab);
+        // Update existing tab with new highlights and switch to it
+        setDocumentTabs(prev => prev.map(tab => 
+          tab.id === existingTab.id 
+            ? { ...tab, highlights: highlights.map(h => ({ text: h.text, page: h.page, lines: h.lines })), query }
+            : tab
+        ));
+        setActiveTabId(existingTab.id);
+        setShowOverview(false);
+        
+        toast({
+          title: "Switched to existing tab",
+          description: `Updated ${existingTab.title} with ${highlights.length} highlights`,
+        });
+        return;
+      }
+      
+      // Load full document content for new tab
       const { data: fullDoc, error } = await supabase
         .from('documents')
         .select('*')
@@ -213,7 +241,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
           page: h.page,
           lines: h.lines
         })),
-        query
+        query,
+        document_id: fullDoc.id,
+        document_title: fullDoc.file_name
       };
 
       setDocumentTabs(prev => [...prev, newTab]);
@@ -234,6 +264,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     }
   };
 
+  // Function to switch to an existing tab
+  const handleSwitchToTab = (tabId: string) => {
+    setActiveTabId(tabId);
+    setShowOverview(false);
+  };
+
   const handleOpenDocument = async (document: any) => {
     try {
       // Load the full document content from database
@@ -251,7 +287,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
         title: fullDoc.file_name,
         content: fullDoc.content || 'Document content will be loaded here',
         highlights: [],
-        query: ''
+        query: '',
+        document_id: fullDoc.id,
+        document_title: fullDoc.file_name
       };
 
       setDocumentTabs(prev => [...prev, newTab]);
@@ -459,11 +497,41 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
           )}
         </div>
 
+        {/* Gmail-style Fixed Chat Toggle - Always visible on right edge */}
+        {selectedClient && (
+          <div className="fixed right-0 top-1/2 transform -translate-y-1/2 z-40">
+            <Button
+              onClick={handleToggleChat}
+              variant={currentChatState.isOpen ? "default" : "outline"}
+              size="sm"
+              className={`h-12 px-3 rounded-l-lg rounded-r-none shadow-lg border-r-0 transition-all duration-300 ${
+                currentChatState.isOpen 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <MessageCircle className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
         {/* Chat Panel - Fixed position, slides in from right */}
         {selectedClient && (
           <div className={`fixed right-4 top-4 bottom-4 w-96 bg-white rounded-lg shadow-lg border transform transition-transform duration-300 z-50 ${
             currentChatState.isOpen ? 'translate-x-0' : 'translate-x-full'
           }`}>
+            {/* Chat panel close button */}
+            <div className="absolute top-2 right-2 z-10">
+              <Button
+                onClick={handleToggleChat}
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 rounded-full hover:bg-gray-100"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
             <GmailStyleChat
               client={selectedClient}
               isOpen={currentChatState.isOpen}
@@ -471,6 +539,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
               onToggle={handleToggleChat}
               messages={currentChatState.messages}
               onMessagesChange={handleChatMessagesChange}
+              openTabs={documentTabs}
+              onSwitchToTab={handleSwitchToTab}
             />
           </div>
         )}

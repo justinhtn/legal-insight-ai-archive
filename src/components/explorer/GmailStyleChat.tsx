@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -80,7 +81,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     }
   }, [messages, isOpen]);
 
-  // Auto-expanding textarea logic - Fixed implementation
+  // Auto-expanding textarea logic
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const textarea = e.target;
     setInputValue(textarea.value);
@@ -102,14 +103,15 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     }
   };
 
-  // Enhanced conversational AI response formatting
+  // Enhanced conversational AI response formatting - remove technical prefixes
   const formatConversationalResponse = (fullResponse: string) => {
-    // Remove technical jargon and metadata
+    // Remove technical jargon, metadata, and document references
     let response = fullResponse
       .replace(/Based on (?:the )?(?:provided )?documents?,?\s*/gi, '')
       .replace(/According to (?:the )?(?:provided )?documents?,?\s*/gi, '')
       .replace(/Document:\s*[^|]+\|\s*Location:\s*[^|]+\|\s*Lines:\s*[^\n\r.]+/gi, '')
       .replace(/Document:\s*[^|]+\|\s*Page\s*\d+/gi, '')
+      .replace(/Section:\s*[^\n\r.]+/gi, '')
       .replace(/\(.*?Chunk \d+.*?\)/gi, '')
       .replace(/\(Document \d+.*?\)/gi, '')
       .replace(/Location:\s*[^\n\r.]+/gi, '')
@@ -129,14 +131,14 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       // Add conversational starters randomly
       const starters = [
         "I found that ",
-        "Looking at the documents, ",
+        "Looking at your documents, ",
         "From what I can see, ",
-        "The documents show that ",
+        "The records show that ",
         "Here's what I discovered: "
       ];
       
       // Only add starter if response doesn't already start conversationally
-      if (!response.match(/^(I |Looking |From |Here's |The documents)/i)) {
+      if (!response.match(/^(I |Looking |From |Here's |The documents|The records)/i)) {
         const randomStarter = starters[Math.floor(Math.random() * starters.length)];
         response = randomStarter.toLowerCase() + response;
       }
@@ -163,6 +165,10 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     if (existingTab && onSwitchToTab) {
       console.log('Document already open, switching to existing tab:', existingTab);
       onSwitchToTab(existingTab.id);
+      toast({
+        title: "Switched to existing tab",
+        description: `Viewing ${source.document_title}`,
+      });
       return;
     }
     
@@ -310,7 +316,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response.ai_response || 'I couldn\'t find relevant information in the documents.',
+        content: response.ai_response || 'I couldn\'t find relevant information in your documents.',
         timestamp: new Date(),
         sources,
         documentCount: response.results?.length || 0,
@@ -348,7 +354,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Header - Fixed at top (removed close button as requested) */}
+      {/* Header - No close button, just the title */}
       <div className="p-4 border-b bg-gray-50 rounded-t-lg flex items-center flex-shrink-0">
         <div className="flex items-center">
           <MessageCircle className="mr-2 h-5 w-5 text-blue-600" />
@@ -412,10 +418,10 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
             ref={textareaRef}
             value={inputValue}
             onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder={`Ask about ${client.name}'s documents or folders...`}
             disabled={isLoading}
-            className="flex-1 resize-none min-h-[40px] overflow-y-hidden"
+            className="flex-1 resize-none min-h-[40px] max-h-[120px] overflow-y-hidden"
             rows={1}
             style={{ height: '40px' }}
           />
