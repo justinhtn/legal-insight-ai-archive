@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send, Loader2, FileText, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -72,6 +71,8 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
   };
 
   const handleViewDocument = (source: any, query: string) => {
+    console.log('Opening document with highlights:', { source, query });
+    
     const highlights = source.excerpts?.map((excerpt: any) => ({
       text: excerpt.text,
       page: excerpt.page,
@@ -79,14 +80,22 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       section: excerpt.section,
     })) || [];
 
-    if (onOpenDocumentWithHighlights) {
+    if (onOpenDocumentWithHighlights && highlights.length > 0) {
       // Find the document by ID or title
       const documentData = {
         id: source.document_id,
         title: source.document_title,
         file_name: source.document_file_name,
       };
+      
+      console.log('Calling onOpenDocumentWithHighlights with:', { documentData, highlights, query });
       onOpenDocumentWithHighlights(documentData, highlights, query);
+    } else {
+      toast({
+        title: "No highlights available",
+        description: "This document doesn't have specific highlights for your query.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -119,12 +128,12 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
 
   const formatDocumentReference = (source: any) => {
     const fileName = source.document_file_name || source.document_title;
-    let reference = `Document: ${fileName}`;
+    let reference = `${fileName}`;
     
     if (source.excerpts && source.excerpts.length > 0) {
       const excerpt = source.excerpts[0];
       if (excerpt.section) {
-        reference += ` | Section: ${excerpt.section}`;
+        reference += ` | ${excerpt.section}`;
       }
       if (excerpt.lines) {
         reference += ` | Lines: ${excerpt.lines}`;
@@ -179,14 +188,20 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
                   <div className="space-y-1 text-xs ml-6">
                     {source.excerpts
                       .filter((excerpt: any) => excerpt.queryRelevance === undefined || excerpt.queryRelevance > 0.3)
-                      .slice(0, 2)
+                      .slice(0, 3)
                       .map((excerpt: any, excerptIndex: number) => (
-                      <div key={excerptIndex} className="text-gray-700">
+                      <div key={excerptIndex} className="text-gray-700 bg-yellow-50 p-2 rounded border-l-2 border-yellow-300">
+                        <div className="font-medium text-xs text-gray-600 mb-1">
+                          {excerpt.page && `Page ${excerpt.page}`}
+                          {excerpt.lines && ` • Lines ${excerpt.lines}`}
+                          {excerpt.section && ` • ${excerpt.section}`}
+                          {excerpt.queryRelevance && ` • Relevance: ${Math.round(excerpt.queryRelevance * 100)}%`}
+                        </div>
                         <button
                           onClick={() => handleViewDocument(source, query)}
                           className="text-blue-600 hover:text-blue-800 hover:underline text-left"
                         >
-                          • "{excerpt.text.length > 80 ? excerpt.text.substring(0, 80) + '...' : excerpt.text}"
+                          "{excerpt.text.length > 120 ? excerpt.text.substring(0, 120) + '...' : excerpt.text}"
                         </button>
                       </div>
                     ))}
@@ -216,7 +231,9 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     setIsLoading(true);
 
     try {
+      console.log('Sending search query:', currentQuery);
       const response = await searchDocuments(currentQuery, client.id, client);
+      console.log('Search response:', response);
       
       const sources = response.consolidated_documents?.slice(0, 3).map(doc => {
         return {
@@ -232,6 +249,8 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
           })),
         };
       });
+
+      console.log('Formatted sources:', sources);
 
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),

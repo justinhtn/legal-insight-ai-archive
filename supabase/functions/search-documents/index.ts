@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -160,12 +159,18 @@ Content: "${result.content}"
 
     const model = isSimpleQuery ? 'gpt-3.5-turbo' : 'gpt-4o-mini';
 
-    // Enhanced system prompt with client context and proper document referencing
+    // Enhanced system prompt with stricter document referencing requirements
     const systemPrompt = `You are a legal document assistant helping attorneys manage client cases. 
 
 ${client_context ? `Current Client Context:\n${client_context}\n` : ''}
 
-CRITICAL INSTRUCTIONS:
+CRITICAL INSTRUCTIONS FOR DOCUMENT REFERENCES:
+1. You MUST use this EXACT format when referencing documents: "Document: [filename] | Section: [section] | Lines: [range]"
+2. NEVER use phrases like "Software Development Agreement" - use the ACTUAL filename from the documents provided
+3. For divorce/family law cases, refer to documents by their actual names (e.g., "divorce_petition.pdf", "custody_agreement.doc")
+4. ALWAYS include specific section and line references when possible
+
+RESPONSE REQUIREMENTS:
 1. SCAN for the EXACT answer in the documents
 2. Give the MOST DIRECT answer possible - usually 1-2 sentences
 3. Do NOT add boilerplate phrases like "If you require further details..." or "Review the highlighted sources..."
@@ -173,9 +178,13 @@ CRITICAL INSTRUCTIONS:
 5. Quote directly from documents when possible
 6. For list questions, format as bullet points
 7. Be precise and factual, no interpretation unless necessary
-8. When referencing documents, use format: Document: [filename] | Section: [section] | Lines: [range]
-9. ALWAYS base your answer on the actual document content provided
-10. Stay consistent with the client context - this is a ${client_context?.match(/Case Type: ([^\n]+)/)?.[1] || 'legal'} case
+8. ALWAYS base your answer on the actual document content provided
+9. Stay consistent with the client context - this is a ${client_context?.match(/Case Type: ([^\n]+)/)?.[1] || 'legal'} case
+
+DOCUMENT REFERENCE EXAMPLES:
+✓ "Document: divorce_petition.pdf | Section: Child Custody | Lines: 45-48"
+✓ "Document: settlement_agreement.doc | Section: 3.2 Financial Terms | Lines: 120-125"
+✗ "Software Development Agreement" (NEVER use generic terms)
 
 Examples:
 Q: "What is the client number?"
@@ -189,6 +198,9 @@ A: "Mr. Houghton disputes these claims:
 
 Q: "When was the contract signed?"
 A: "January 15, 2025"
+
+Q: "What were the ages of the two minors?"
+A: "EMMA JOHNSON, age 7 - JACOB JOHNSON, age 5"
 
 Document excerpts are provided below with their titles and location information.`;
 
@@ -214,7 +226,7 @@ Document excerpts are provided below with their titles and location information.
 Document Excerpts:
 ${documentContext}
 
-Provide a direct, concise answer based on these documents. When citing information, use the format: Document: [filename] | Section: [section] | Lines: [range]`
+Provide a direct, concise answer based on these documents. When citing information, use the EXACT format: Document: [filename] | Section: [section] | Lines: [range]`
           }
         ],
         temperature: 0.1,
