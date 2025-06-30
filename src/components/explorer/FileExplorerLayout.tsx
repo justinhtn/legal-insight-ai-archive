@@ -1,9 +1,8 @@
 
 import React, { useState } from 'react';
-import { FileText } from 'lucide-react';
+import UnifiedExplorer from './UnifiedExplorer';
+import DocumentContent from './DocumentContent';
 import DocumentTabManager from './DocumentTabManager';
-import ClientExplorer from './ClientExplorer';
-import TabbedDocumentViewer from './TabbedDocumentViewer';
 import ExplorerHeader from './ExplorerHeader';
 import RightPanel from './RightPanel';
 import DocumentUploadModal from '../DocumentUploadModal';
@@ -18,9 +17,10 @@ const FileExplorerLayout: React.FC = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightPanelMode, setRightPanelMode] = useState<'chat' | 'client-info' | null>(null);
+  const [explorerCollapsed, setExplorerCollapsed] = useState(false);
   
   const { selectedClientId, selectedFolderId } = useFileExplorer();
-  const { openTabs, activeTabId, showOverview, handleDocumentOpen } = useDocumentTabs();
+  const { openTabs, handleDocumentOpen } = useDocumentTabs();
 
   // Get selected client data
   const { data: clients = [], refetch: refetchClients } = useQuery({
@@ -73,6 +73,10 @@ const FileExplorerLayout: React.FC = () => {
   };
 
   const handleUpload = () => {
+    if (!selectedClientId) {
+      toast.error('Please select a client first');
+      return;
+    }
     setShowUploadModal(true);
   };
 
@@ -93,7 +97,7 @@ const FileExplorerLayout: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="app-layout">
       {/* Header */}
       <ExplorerHeader
         isChatOpen={rightPanelOpen && rightPanelMode === 'chat'}
@@ -103,48 +107,20 @@ const FileExplorerLayout: React.FC = () => {
         selectedClientName={selectedClient?.name}
       />
 
-      {/* Document Tabs - Always visible when there are open tabs */}
+      {/* Document Tabs - Show when tabs are open */}
       {openTabs.length > 0 && <DocumentTabManager />}
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Client Explorer - Always visible */}
-        <ClientExplorer
-          onUpload={handleUpload}
-          onRefresh={handleRefresh}
-          onNewClient={handleNewClient}
+      {/* Main Layout */}
+      <div className="main-layout">
+        {/* Unified Explorer Panel */}
+        <UnifiedExplorer
+          collapsed={explorerCollapsed}
+          onToggleCollapsed={() => setExplorerCollapsed(!explorerCollapsed)}
         />
 
-        {/* Main Content Panel */}
-        <div className="flex-1 flex flex-col">
-          {/* Document Viewer - Only show when there are open tabs and not showing overview */}
-          {openTabs.length > 0 && !showOverview && activeTabId ? (
-            <TabbedDocumentViewer
-              tabs={openTabs}
-              activeTabId={activeTabId}
-              onTabChange={() => {}} // Handled by context
-              onTabClose={() => {}} // Handled by context
-              onShowOverview={() => {}} // Handled by context
-              showOverview={showOverview}
-              showTabsOnly={false}
-            />
-          ) : (
-            /* Welcome message when no client is selected or showing overview */
-            <div className="flex-1 flex items-center justify-center bg-white">
-              <div className="text-center">
-                <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                  {!selectedClientId ? 'Welcome to Legal Document Manager' : 'Overview'}
-                </h2>
-                <p className="text-gray-500 text-lg">
-                  {!selectedClientId 
-                    ? 'Select a client from the sidebar to view their files and folders'
-                    : 'Select a document to view its contents'
-                  }
-                </p>
-              </div>
-            </div>
-          )}
+        {/* Document Content Area */}
+        <div className={`main-content ${rightPanelOpen ? 'chat-open' : ''}`}>
+          <DocumentContent />
         </div>
 
         {/* Right Panel - Chat or Client Info */}
