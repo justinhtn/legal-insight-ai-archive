@@ -2,7 +2,6 @@
 import React from 'react';
 import { Upload, RefreshCw, ChevronRight, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Folder as FolderType } from '@/services/clientService';
 import FileTableView from '../finder/FileTableView';
 
@@ -96,23 +95,23 @@ const FilePanel: React.FC<FilePanelProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-background">
       {/* Toolbar */}
-      <div className="px-6 py-3 border-b bg-gray-50/50 flex-shrink-0">
+      <div className="px-4 py-3 border-b border-border bg-background flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             {/* Breadcrumb Navigation */}
             <div className="flex items-center space-x-1 text-sm">
-              <Home className="h-4 w-4 text-gray-500" />
+              <Home className="h-4 w-4 text-muted-foreground" />
               {breadcrumbs.map((crumb, index) => (
                 <React.Fragment key={crumb.id || 'root'}>
-                  {index > 0 && <ChevronRight className="h-3 w-3 text-gray-400" />}
+                  {index > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
                   <button
                     onClick={() => crumb.id ? onFolderClick(crumb.id) : onNavigateToRoot()}
-                    className={`px-1 py-0.5 rounded text-sm transition-colors ${
+                    className={`px-2 py-1 rounded text-sm transition-colors ${
                       index === breadcrumbs.length - 1
-                        ? 'text-gray-900 font-medium'
-                        : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                        ? 'text-foreground font-medium'
+                        : 'text-primary hover:text-primary/80 hover:bg-accent'
                     }`}
                   >
                     {crumb.name}
@@ -129,7 +128,7 @@ const FilePanel: React.FC<FilePanelProps> = ({
               variant="ghost"
               size="sm"
               disabled={isLoading}
-              className="h-8 px-2"
+              className="h-8 px-3"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
@@ -138,7 +137,7 @@ const FilePanel: React.FC<FilePanelProps> = ({
               size="sm"
               className="h-8 px-3"
             >
-              <Upload className="h-4 w-4 mr-1" />
+              <Upload className="h-4 w-4 mr-2" />
               Upload
             </Button>
           </div>
@@ -146,12 +145,12 @@ const FilePanel: React.FC<FilePanelProps> = ({
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-hidden p-6">
+      <div className="flex-1 overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <RefreshCw className="h-6 w-6 animate-spin mx-auto text-gray-400 mb-2" />
-              <p className="text-gray-500 text-sm">Loading files and folders...</p>
+              <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground mb-2" />
+              <p className="text-muted-foreground text-sm">Loading files and folders...</p>
             </div>
           </div>
         ) : allItems.length > 0 ? (
@@ -164,13 +163,13 @@ const FilePanel: React.FC<FilePanelProps> = ({
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
-                <Home className="h-8 w-8 text-gray-400" />
+              <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-lg flex items-center justify-center">
+                <Home className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-foreground mb-2">
                 {selectedFolderId ? 'Folder is empty' : 'No files or folders'}
               </h3>
-              <p className="text-gray-500 text-sm max-w-sm">
+              <p className="text-muted-foreground text-sm max-w-sm">
                 {selectedFolderId 
                   ? 'Upload files to this folder to get started'
                   : 'Upload your first document or create a folder to organize your files'
