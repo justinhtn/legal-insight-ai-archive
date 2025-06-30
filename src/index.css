@@ -236,6 +236,7 @@ All colors MUST be HSL.
   color: #202124;
   font-weight: 500;
   border-bottom: 1px solid #ffffff;
+  border-radius:15px 15px 0px 0px;
   z-index: 1;
 }
 
