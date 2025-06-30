@@ -334,34 +334,7 @@ All colors MUST be HSL.
   display: none;
 }
 
-.document-tab .close-button {
-  z-index: 999 !important;
-  position: relative !important;
-  pointer-events: auto !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: transparent !important;
-  border: none !important;
-  cursor: pointer !important;
-  padding: 2px !important;
-  margin-left: 4px !important;
-}
 
-.document-tab .close-button:hover {
-  background-color: rgba(0, 0, 0, 0.1) !important;
-  border-radius: 3px !important;
-}
-
-/* Make sure the X icon doesn't block clicks */
-.document-tab .close-button svg {
-  pointer-events: none !important;
-}
-
-/* Ensure tab doesn't prevent button clicks */
-.document-tab {
-  position: relative !important;
-}
 
 /* Hide close button on narrow screens */
 @media (max-width: 1200px) {
