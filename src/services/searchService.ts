@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Client, getFolders } from './clientService';
+import { findRelevantSentences, AnswerRelevantSentence } from './answerMatchingService';
 
 export interface SearchResult {
   document_id: string;
@@ -177,42 +178,27 @@ function getContextTerms(query: string): string[] {
   return terms;
 }
 
-// Generate targeted highlights based on AI response correlation
-function generateTargetedHighlights(userQuery: string, aiResponse: string, chunks: SearchResult[]): Array<{
+// Generate targeted highlights based on AI response correlation - UPDATED
+function generateAnswerBasedHighlights(userQuery: string, aiResponse: string, chunks: SearchResult[]): Array<{
   page?: number;
   text: string;
   lines?: string;
   section?: string;
   queryRelevance: number;
 }> {
-  console.log('Generating targeted highlights for query:', userQuery);
+  console.log('Generating answer-based highlights for AI response:', aiResponse.substring(0, 100));
   
-  // Calculate semantic relevance for each chunk
-  const relevantChunks = chunks.map(chunk => ({
-    ...chunk,
-    queryRelevance: calculateSemanticRelevance(chunk.content, userQuery, aiResponse)
-  }))
-  .filter(chunk => chunk.queryRelevance > 0.3) // Only include relevant content
-  .sort((a, b) => b.queryRelevance - a.queryRelevance)
-  .slice(0, 3); // Top 3 most relevant chunks
+  // Use the new answer matching service
+  const relevantSentences = findRelevantSentences(chunks, aiResponse, 3);
+  console.log('Found relevant sentences:', relevantSentences.length);
   
-  console.log('Relevant chunks found:', relevantChunks.length);
-  
-  return relevantChunks.map(chunk => {
-    // Try to extract the most relevant part of the content
-    const relevantText = extractMostRelevantText(chunk.content, userQuery, aiResponse);
-    
-    // Try to detect section information
-    const section = detectSection(chunk.content);
-    
-    return {
-      page: chunk.page_number,
-      text: relevantText,
-      lines: chunk.line_start && chunk.line_end ? `${chunk.line_start}-${chunk.line_end}` : undefined,
-      section: section,
-      queryRelevance: chunk.queryRelevance
-    };
-  });
+  return relevantSentences.map(sentence => ({
+    page: sentence.page,
+    text: sentence.text,
+    lines: sentence.lines,
+    section: sentence.section,
+    queryRelevance: sentence.relevanceScore
+  }));
 }
 
 // Extract the most relevant part of content based on query and AI response
@@ -288,7 +274,7 @@ function calculateRelevanceLevel(scores: number[]): 'High' | 'Medium' | 'Low' {
 }
 
 function consolidateSearchResults(chunks: SearchResult[], userQuery: string = '', aiResponse: string = ''): ConsolidatedDocument[] {
-  console.log('Consolidating search results with improved highlighting');
+  console.log('Consolidating search results with answer-based highlighting');
   
   const documentMap = new Map<string, {
     document_id: string;
@@ -319,17 +305,17 @@ function consolidateSearchResults(chunks: SearchResult[], userQuery: string = ''
     docData.relevance_scores.push(chunk.similarity);
   });
 
-  // Convert to array and calculate relevance with targeted highlights
+  // Convert to array and calculate relevance with answer-based highlights
   return Array.from(documentMap.values()).map(doc => {
     const docChunks = chunks.filter(chunk => chunk.document_id === doc.document_id);
-    const targetedHighlights = userQuery && aiResponse 
-      ? generateTargetedHighlights(userQuery, aiResponse, docChunks)
+    const answerBasedHighlights = userQuery && aiResponse 
+      ? generateAnswerBasedHighlights(userQuery, aiResponse, docChunks)
       : extractKeyPhrases(docChunks[0]?.content || '', docChunks[0]?.page_number, docChunks[0]?.line_start, docChunks[0]?.line_end);
     
     return {
       ...doc,
       relevance: calculateRelevanceLevel(doc.relevance_scores),
-      excerpts: targetedHighlights.slice(0, 3) // Limit to top 3 most relevant excerpts
+      excerpts: answerBasedHighlights.slice(0, 3) // Top 3 most relevant excerpts
     };
   });
 }

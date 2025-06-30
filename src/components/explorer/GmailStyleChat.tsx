@@ -70,9 +70,10 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     setMessages([]);
   };
 
-  const handleViewDocument = (source: any, query: string) => {
-    console.log('Opening document with highlights:', { source, query });
+  const handleViewDocument = (source: any, query: string, aiResponse: string) => {
+    console.log('Opening document with highlights:', { source, query, aiResponse });
     
+    // Create proper highlights from the excerpts
     const highlights = source.excerpts?.map((excerpt: any) => ({
       text: excerpt.text,
       page: excerpt.page,
@@ -80,22 +81,37 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       section: excerpt.section,
     })) || [];
 
+    console.log('Formatted highlights:', highlights);
+
     if (onOpenDocumentWithHighlights && highlights.length > 0) {
       // Find the document by ID or title
       const documentData = {
         id: source.document_id,
         title: source.document_title,
         file_name: source.document_file_name,
+        document_title: source.document_title, // Add this for compatibility
+        document_file_name: source.document_file_name, // Add this for compatibility
       };
       
       console.log('Calling onOpenDocumentWithHighlights with:', { documentData, highlights, query });
       onOpenDocumentWithHighlights(documentData, highlights, query);
     } else {
       toast({
-        title: "No highlights available",
-        description: "This document doesn't have specific highlights for your query.",
-        variant: "destructive",
+        title: "Opening document",
+        description: `Opening ${source.document_title}`,
       });
+      
+      // Fallback: open document without highlights
+      if (onOpenDocumentWithHighlights) {
+        const documentData = {
+          id: source.document_id,
+          title: source.document_title,
+          file_name: source.document_file_name,
+          document_title: source.document_title,
+          document_file_name: source.document_file_name,
+        };
+        onOpenDocumentWithHighlights(documentData, [], query);
+      }
     }
   };
 
@@ -177,7 +193,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-gray-500" />
                   <button
-                    onClick={() => handleViewDocument(source, query)}
+                    onClick={() => handleViewDocument(source, query, content)}
                     className="font-medium text-blue-600 hover:text-blue-800 underline text-left text-sm"
                   >
                     {formatDocumentReference(source)}
@@ -187,7 +203,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
                 {source.excerpts && source.excerpts.length > 0 && (
                   <div className="space-y-1 text-xs ml-6">
                     {source.excerpts
-                      .filter((excerpt: any) => excerpt.queryRelevance === undefined || excerpt.queryRelevance > 0.3)
+                      .filter((excerpt: any) => excerpt.queryRelevance === undefined || excerpt.queryRelevance > 0.1)
                       .slice(0, 3)
                       .map((excerpt: any, excerptIndex: number) => (
                       <div key={excerptIndex} className="text-gray-700 bg-yellow-50 p-2 rounded border-l-2 border-yellow-300">
@@ -195,10 +211,10 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
                           {excerpt.page && `Page ${excerpt.page}`}
                           {excerpt.lines && ` • Lines ${excerpt.lines}`}
                           {excerpt.section && ` • ${excerpt.section}`}
-                          {excerpt.queryRelevance && ` • Relevance: ${Math.round(excerpt.queryRelevance * 100)}%`}
+                          {excerpt.queryRelevance && ` • Match: ${Math.round(excerpt.queryRelevance * 100)}%`}
                         </div>
                         <button
-                          onClick={() => handleViewDocument(source, query)}
+                          onClick={() => handleViewDocument(source, query, content)}
                           className="text-blue-600 hover:text-blue-800 hover:underline text-left"
                         >
                           "{excerpt.text.length > 120 ? excerpt.text.substring(0, 120) + '...' : excerpt.text}"

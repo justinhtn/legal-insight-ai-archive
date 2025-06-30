@@ -165,42 +165,35 @@ Content: "${result.content}"
 ${client_context ? `Current Client Context:\n${client_context}\n` : ''}
 
 CRITICAL INSTRUCTIONS FOR DOCUMENT REFERENCES:
-1. You MUST use this EXACT format when referencing documents: "Document: [filename] | Section: [section] | Lines: [range]"
-2. NEVER use phrases like "Software Development Agreement" - use the ACTUAL filename from the documents provided
-3. For divorce/family law cases, refer to documents by their actual names (e.g., "divorce_petition.pdf", "custody_agreement.doc")
-4. ALWAYS include specific section and line references when possible
+1. You MUST base your answer EXACTLY on the document content provided
+2. When citing specific information, quote the EXACT text from the documents
+3. Use this EXACT format when referencing documents: "Document: [filename] | Section: [section] | Lines: [range]"
+4. NEVER make up information not found in the provided documents
+5. If asked about specific details (names, ages, dates, amounts), quote them EXACTLY as they appear
 
 RESPONSE REQUIREMENTS:
 1. SCAN for the EXACT answer in the documents
-2. Give the MOST DIRECT answer possible - usually 1-2 sentences
-3. Do NOT add boilerplate phrases like "If you require further details..." or "Review the highlighted sources..."
-4. Do NOT repeat document location information in your response
-5. Quote directly from documents when possible
-6. For list questions, format as bullet points
-7. Be precise and factual, no interpretation unless necessary
-8. ALWAYS base your answer on the actual document content provided
-9. Stay consistent with the client context - this is a ${client_context?.match(/Case Type: ([^\n]+)/)?.[1] || 'legal'} case
+2. Quote directly from documents when citing specific facts
+3. Give the MOST DIRECT answer possible - usually 1-2 sentences
+4. Do NOT add boilerplate phrases like "If you require further details..."
+5. For list questions, format as bullet points
+6. Be precise and factual, quote exact text when referencing specific information
+7. ALWAYS base your answer on the actual document content provided
+8. Stay consistent with the client context - this is a ${client_context?.match(/Case Type: ([^\n]+)/)?.[1] || 'legal'} case
 
-DOCUMENT REFERENCE EXAMPLES:
-✓ "Document: divorce_petition.pdf | Section: Child Custody | Lines: 45-48"
-✓ "Document: settlement_agreement.doc | Section: 3.2 Financial Terms | Lines: 120-125"
-✗ "Software Development Agreement" (NEVER use generic terms)
+EXACT CITATION EXAMPLES:
+When you find information like "EMMA JOHNSON, age 7" in a document, your response should quote this EXACTLY.
+When you find "The contract was signed on January 15, 2025", quote this EXACTLY.
 
 Examples:
-Q: "What is the client number?"
-A: "2025-0847"
-
-Q: "What claims is Mr Houghton disputing?"
-A: "Mr. Houghton disputes these claims:
-• The real-time synchronization feature was added as a verbal request
-• The UI changes were requested and approved by TechVentures' project manager, Diana Lee  
-• The software passed all 147 acceptance tests"
-
-Q: "When was the contract signed?"
-A: "January 15, 2025"
-
 Q: "What were the ages of the two minors?"
 A: "EMMA JOHNSON, age 7 - JACOB JOHNSON, age 5"
+
+Q: "What is the contract amount?"
+A: "$50,000 as stated in Section 3.2"
+
+Q: "When was the agreement signed?"
+A: "January 15, 2025"
 
 Document excerpts are provided below with their titles and location information.`;
 
@@ -246,7 +239,7 @@ Provide a direct, concise answer based on these documents. When citing informati
     // Return enhanced response with detailed source documents
     const sourceDocuments = results
       .filter(result => result.similarity > 0.2)
-      .slice(0, 6) // Reduce to top 6 sources
+      .slice(0, 6) // Top 6 sources
       .map(result => {
         const metadata = result.metadata || {};
         return {
