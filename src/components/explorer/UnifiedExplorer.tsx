@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, ChevronDown, Folder, File, Star, Search, Pin, Users } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, File, Star, Users, Tag } from 'lucide-react';
 import { getClients, getFolders } from '@/services/clientService';
 import { getDocuments } from '@/services/documentService';
 import { useFileExplorer } from '@/contexts/FileExplorerContext';
@@ -108,7 +108,7 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
   return (
     <div className="unified-explorer">
       <div className="explorer-header">
-        <span className="explorer-title">📁 LEGAL EXPLORER</span>
+        <span className="explorer-title">LEGAL EXPLORER</span>
         <button className="collapse-btn" onClick={onToggleCollapsed}>
           <ChevronRight className="h-4 w-4 rotate-180" />
         </button>
@@ -122,25 +122,25 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
             onClick={() => toggleGroup('favorites')}
           >
             {expandedGroups.favorites ? 
-              <ChevronDown className="h-3 w-3" /> : 
-              <ChevronRight className="h-3 w-3" />
+              <ChevronDown className="h-4 w-4 disclosure-icon" /> : 
+              <ChevronRight className="h-4 w-4 disclosure-icon" />
             }
-            <Star className="h-3 w-3" />
-            <span>FAVORITES</span>
+            <Star className="h-4 w-4 section-icon" />
+            <span className="section-title">FAVORITES</span>
           </div>
           
           {expandedGroups.favorites && (
             <div className="section-items">
               <div className="explorer-item">
-                <span className="item-icon">🌟</span>
+                <Star className="h-4 w-4 item-icon" />
                 <span className="item-label">Recent Cases</span>
               </div>
               <div className="explorer-item">
-                <span className="item-icon">📌</span>
+                <File className="h-4 w-4 item-icon" />
                 <span className="item-label">Pinned Documents</span>
               </div>
               <div className="explorer-item">
-                <span className="item-icon">🔍</span>
+                <File className="h-4 w-4 item-icon" />
                 <span className="item-label">Recent Searches</span>
               </div>
             </div>
@@ -154,11 +154,11 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
             onClick={() => toggleGroup('activeClients')}
           >
             {expandedGroups.activeClients ? 
-              <ChevronDown className="h-3 w-3" /> : 
-              <ChevronRight className="h-3 w-3" />
+              <ChevronDown className="h-4 w-4 disclosure-icon" /> : 
+              <ChevronRight className="h-4 w-4 disclosure-icon" />
             }
-            <Users className="h-3 w-3" />
-            <span>CLIENTS</span>
+            <Users className="h-4 w-4 section-icon" />
+            <span className="section-title">CLIENTS</span>
           </div>
           
           {expandedGroups.activeClients && (
@@ -166,9 +166,9 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
               {/* Active Cases */}
               <div className="client-group">
                 <div className="group-header">
-                  <ChevronDown className="h-3 w-3" />
-                  <Folder className="h-3 w-3" />
-                  <span>Active Cases</span>
+                  <ChevronDown className="h-4 w-4 disclosure-icon" />
+                  <Folder className="h-4 w-4 group-icon" />
+                  <span className="group-title">Active Cases</span>
                   <span className="group-count">({activeClients.length})</span>
                 </div>
                 
@@ -180,10 +180,10 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
                         onClick={() => toggleClient(client.id)}
                       >
                         {expandedClients[client.id] ? 
-                          <ChevronDown className="h-3 w-3" /> : 
-                          <ChevronRight className="h-3 w-3" />
+                          <ChevronDown className="h-4 w-4 disclosure-icon" /> : 
+                          <ChevronRight className="h-4 w-4 disclosure-icon" />
                         }
-                        <span className="client-icon">⚖️</span>
+                        <Users className="h-4 w-4 client-icon" />
                         <div className="client-info">
                           <div className="client-name">{client.name}</div>
                           <div className="client-meta">
@@ -197,8 +197,12 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
                           {folders
                             .filter(folder => folder.client_id === client.id)
                             .map((folder) => (
-                              <div key={folder.id} className="folder-item">
-                                <Folder className="h-3 w-3" />
+                              <div key={folder.id} className="folder-item" onClick={() => toggleFolder(folder.id)}>
+                                {expandedFolders[folder.id] ? 
+                                  <ChevronDown className="h-4 w-4 disclosure-icon" /> : 
+                                  <ChevronRight className="h-4 w-4 disclosure-icon" />
+                                }
+                                <Folder className="h-4 w-4 folder-icon" />
                                 <span className="file-name">{folder.name}</span>
                                 <span className="file-count">(files)</span>
                               </div>
@@ -214,7 +218,8 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
                               type: 'file'
                             })}
                           >
-                            <File className="h-3 w-3" />
+                            <div className="file-indent"></div>
+                            <File className="h-4 w-4 file-icon" />
                             <span className="file-name">sample-divorce-petition.txt</span>
                           </div>
                         </div>
@@ -227,9 +232,9 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
               {/* Pending Cases */}
               <div className="client-group">
                 <div className="group-header">
-                  <ChevronRight className="h-3 w-3" />
-                  <Folder className="h-3 w-3" />
-                  <span>Pending Cases</span>
+                  <ChevronRight className="h-4 w-4 disclosure-icon" />
+                  <Folder className="h-4 w-4 group-icon" />
+                  <span className="group-title">Pending Cases</span>
                   <span className="group-count">({pendingClients.length})</span>
                 </div>
               </div>
@@ -237,9 +242,9 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
               {/* Closed Cases */}
               <div className="client-group">
                 <div className="group-header">
-                  <ChevronRight className="h-3 w-3" />
-                  <Folder className="h-3 w-3" />
-                  <span>Closed Cases</span>
+                  <ChevronRight className="h-4 w-4 disclosure-icon" />
+                  <Folder className="h-4 w-4 group-icon" />
+                  <span className="group-title">Closed Cases</span>
                   <span className="group-count">({closedClients.length})</span>
                 </div>
               </div>
@@ -254,27 +259,27 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
             onClick={() => toggleGroup('tags')}
           >
             {expandedGroups.tags ? 
-              <ChevronDown className="h-3 w-3" /> : 
-              <ChevronRight className="h-3 w-3" />
+              <ChevronDown className="h-4 w-4 disclosure-icon" /> : 
+              <ChevronRight className="h-4 w-4 disclosure-icon" />
             }
-            <span className="item-icon">🏷️</span>
-            <span>TAGS</span>
+            <Tag className="h-4 w-4 section-icon" />
+            <span className="section-title">TAGS</span>
           </div>
           
           {expandedGroups.tags && (
             <div className="section-items">
               <div className="explorer-item">
-                <span className="item-icon">🔴</span>
+                <div className="tag-indicator urgent"></div>
                 <span className="item-label">Urgent</span>
                 <span className="item-count">(5)</span>
               </div>
               <div className="explorer-item">
-                <span className="item-icon">🟡</span>
+                <div className="tag-indicator review"></div>
                 <span className="item-label">Review Needed</span>
                 <span className="item-count">(12)</span>
               </div>
               <div className="explorer-item">
-                <span className="item-icon">🟢</span>
+                <div className="tag-indicator completed"></div>
                 <span className="item-label">Completed</span>
                 <span className="item-count">(45)</span>
               </div>

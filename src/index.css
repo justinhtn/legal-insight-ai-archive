@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -95,6 +96,7 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Open Sans', 'Helvetica Neue', sans-serif;
   }
 
   /* Consistent typography scale */
@@ -257,7 +259,7 @@ All colors MUST be HSL.
   background: #2563eb;
 }
 
-/* Unified Explorer Styles */
+/* Unified Explorer Styles - Finder/VS Code inspired */
 .app-layout {
   display: flex;
   flex-direction: column;
@@ -273,12 +275,12 @@ All colors MUST be HSL.
 
 .unified-explorer {
   width: 350px;
-  background: #ffffff;
-  border-right: 1px solid #e8eaed;
+  background: #fafafa;
+  border-right: 1px solid #e0e0e0;
   display: flex;
   flex-direction: column;
   height: 100%;
-  box-shadow: 0 1px 2px 0 rgba(60,64,67,.3);
+  box-shadow: 0 0 10px rgba(0,0,0,0.05);
   transition: width 0.3s ease;
 }
 
@@ -287,15 +289,20 @@ All colors MUST be HSL.
 }
 
 .explorer-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #e8eaed;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 14px;
-  font-weight: 500;
-  color: #3c4043;
-  flex-shrink: 0;
+  background: #f5f5f5;
+  min-height: 44px;
+}
+
+.explorer-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #424242;
+  letter-spacing: 0.5px;
 }
 
 .collapse-btn {
@@ -304,123 +311,165 @@ All colors MUST be HSL.
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
-  color: #5f6368;
+  color: #757575;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .collapse-btn:hover {
-  background-color: #f1f3f4;
+  background-color: #e8e8e8;
+  color: #424242;
 }
 
 .explorer-content {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 8px 0;
 }
 
 .explorer-section {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .section-header {
-  padding: 8px 12px;
+  padding: 6px 16px;
   font-size: 11px;
   font-weight: 600;
-  color: #5f6368;
+  color: #757575;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   display: flex;
   align-items: center;
   gap: 6px;
+  height: 28px;
 }
 
 .section-header.clickable {
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 0;
   transition: all 0.2s ease;
 }
 
 .section-header.clickable:hover {
-  background-color: #f1f3f4;
+  background-color: #f0f0f0;
+}
+
+.disclosure-icon {
+  transition: transform 0.2s ease;
+  color: #757575;
+}
+
+.section-icon {
+  color: #5d4037;
+}
+
+.section-title {
+  flex: 1;
 }
 
 .section-items {
-  margin-left: 12px;
+  padding-left: 0;
 }
 
 .explorer-item {
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 4px 16px 4px 32px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #5f6368;
+  color: #424242;
   transition: all 0.2s ease;
+  height: 24px;
 }
 
 .explorer-item:hover {
-  background-color: #f1f3f4;
+  background-color: #f0f0f0;
+}
+
+.item-icon {
+  color: #616161;
+  flex-shrink: 0;
+}
+
+.item-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .item-count {
-  margin-left: auto;
   font-size: 11px;
-  color: #5f6368;
+  color: #9e9e9e;
+  background: #eeeeee;
+  padding: 1px 6px;
+  border-radius: 8px;
 }
 
 .client-group {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .group-header {
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 4px 16px 4px 32px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  color: #5f6368;
+  font-size: 13px;
+  color: #424242;
   transition: all 0.2s ease;
+  height: 24px;
 }
 
 .group-header:hover {
-  background-color: #f1f3f4;
+  background-color: #f0f0f0;
+}
+
+.group-icon {
+  color: #795548;
+  flex-shrink: 0;
+}
+
+.group-title {
+  flex: 1;
+  font-weight: 500;
 }
 
 .group-count {
-  margin-left: auto;
   font-size: 11px;
+  color: #9e9e9e;
 }
 
 .group-items {
-  margin-left: 16px;
+  padding-left: 0;
 }
 
 .client-entry {
-  margin: 0 0 4px 0;
+  margin: 0;
 }
 
 .client-header {
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 6px 16px 6px 48px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
   transition: all 0.2s ease;
   position: relative;
+  min-height: 32px;
 }
 
 .client-header:hover {
-  background-color: #f1f3f4;
+  background-color: #f0f0f0;
 }
 
 .client-header.selected {
-  background-color: #e8f0fe;
-  color: #1a73e8;
+  background-color: #e3f2fd;
+  color: #1976d2;
 }
 
 .client-header.selected::before {
@@ -430,8 +479,12 @@ All colors MUST be HSL.
   top: 0;
   bottom: 0;
   width: 3px;
-  background-color: #1a73e8;
-  border-radius: 0 2px 2px 0;
+  background-color: #1976d2;
+}
+
+.client-icon {
+  color: #1976d2;
+  flex-shrink: 0;
 }
 
 .client-info {
@@ -440,50 +493,94 @@ All colors MUST be HSL.
 }
 
 .client-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #3c4043;
+  color: #424242;
+  line-height: 1.3;
+}
+
+.client-header.selected .client-name {
+  color: #1976d2;
 }
 
 .client-meta {
-  font-size: 12px;
-  color: #5f6368;
+  font-size: 11px;
+  color: #757575;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .client-files {
-  margin-left: 24px;
-  padding: 4px 0;
+  padding-left: 0;
 }
 
 .folder-item, .file-item {
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 3px 16px 3px 64px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 13px;
   transition: all 0.2s ease;
+  height: 22px;
+  position: relative;
 }
 
 .folder-item:hover, .file-item:hover {
-  background-color: #f1f3f4;
+  background-color: #f0f0f0;
 }
 
-.file-item {
-  color: #5f6368;
+.folder-icon {
+  color: #795548;
+  flex-shrink: 0;
+}
+
+.file-icon {
+  color: #757575;
+  flex-shrink: 0;
+}
+
+.file-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #424242;
 }
 
 .file-count {
-  margin-left: auto;
   font-size: 11px;
-  color: #5f6368;
+  color: #9e9e9e;
+}
+
+.file-indent {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+/* Tag indicators */
+.tag-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tag-indicator.urgent {
+  background-color: #f44336;
+}
+
+.tag-indicator.review {
+  background-color: #ff9800;
+}
+
+.tag-indicator.completed {
+  background-color: #4caf50;
 }
 
 /* Document Content Styles */
@@ -523,13 +620,13 @@ All colors MUST be HSL.
 .welcome-title {
   font-size: 24px;
   font-weight: 600;
-  color: #3c4043;
+  color: #424242;
   margin-bottom: 8px;
 }
 
 .welcome-subtitle {
   font-size: 16px;
-  color: #5f6368;
+  color: #757575;
   margin-bottom: 32px;
 }
 
@@ -544,14 +641,14 @@ All colors MUST be HSL.
   align-items: center;
   gap: 12px;
   font-size: 14px;
-  color: #5f6368;
+  color: #757575;
 }
 
 /* Client Overview */
 .content-header {
   padding: 24px 32px;
-  border-bottom: 1px solid #e8eaed;
-  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
 }
 
 .client-overview {
@@ -563,7 +660,7 @@ All colors MUST be HSL.
 .client-avatar {
   width: 48px;
   height: 48px;
-  background: #e8f0fe;
+  background: #e3f2fd;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -573,7 +670,7 @@ All colors MUST be HSL.
 .client-details h1 {
   font-size: 24px;
   font-weight: 600;
-  color: #3c4043;
+  color: #424242;
   margin: 0 0 4px 0;
 }
 
@@ -581,7 +678,7 @@ All colors MUST be HSL.
   display: flex;
   gap: 16px;
   font-size: 14px;
-  color: #5f6368;
+  color: #757575;
 }
 
 .content-body {
@@ -598,10 +695,10 @@ All colors MUST be HSL.
 
 .overview-card {
   background: #ffffff;
-  border: 1px solid #e8eaed;
-  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 1px 2px 0 rgba(60,64,67,.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .card-header {
@@ -614,7 +711,7 @@ All colors MUST be HSL.
 .card-header h3 {
   font-size: 16px;
   font-weight: 500;
-  color: #3c4043;
+  color: #424242;
   margin: 0;
 }
 
@@ -633,12 +730,12 @@ All colors MUST be HSL.
 .stat-number {
   font-size: 24px;
   font-weight: 600;
-  color: #3c4043;
+  color: #424242;
 }
 
 .stat-label {
   font-size: 12px;
-  color: #5f6368;
+  color: #757575;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -648,12 +745,12 @@ All colors MUST be HSL.
   justify-content: space-between;
   align-items: center;
   font-size: 13px;
-  color: #5f6368;
+  color: #757575;
 }
 
 .activity-file {
   font-weight: 500;
-  color: #3c4043;
+  color: #424242;
 }
 
 .detail-row {
@@ -663,10 +760,10 @@ All colors MUST be HSL.
 }
 
 .detail-label {
-  color: #5f6368;
+  color: #757575;
 }
 
 .detail-value {
-  color: #3c4043;
+  color: #424242;
   font-weight: 500;
 }
