@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Loader2 } from 'lucide-react';
+import { MessageCircle, Send, Loader2, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Client } from '@/services/clientService';
 import { searchDocuments } from '@/services/searchService';
 import { useToast } from '@/hooks/use-toast';
+import { openDocumentWithHighlights } from '@/utils/documentViewerUtils';
 
 interface ChatMessage {
   id: string;
@@ -18,7 +19,13 @@ interface ChatMessage {
     document_title: string;
     document_file_name: string;
     pages?: number[];
+    excerpts?: Array<{
+      page?: number;
+      text: string;
+      lines?: string;
+    }>;
   }>;
+  documentCount?: number;
 }
 
 interface ClientChatPanelProps {
@@ -52,6 +59,93 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
     setMessages([]);
   };
 
+  const handleViewDocument = (source: any, query: string) => {
+    // In a real implementation, you'd fetch the full document content
+    // For now, we'll simulate with the excerpts we have
+    const documentContent = source.excerpts?.map((excerpt: any) => excerpt.text).join('\n\n') || 'Document content would be loaded here...';
+    
+    const highlights = source.excerpts?.map((excerpt: any) => ({
+      text: excerpt.text,
+      page: excerpt.page,
+      lines: excerpt.lines,
+    })) || [];
+
+    openDocumentWithHighlights(
+      source.document_title,
+      documentContent,
+      highlights,
+      query
+    );
+  };
+
+  const formatAIResponse = (content: string, sources: any[], documentCount: number) => {
+    return (
+      <div className="space-y-4">
+        {/* AI Analysis Header */}
+        <div className="flex items-center gap-2 text-blue-600 font-semibold">
+          <span>🤖</span>
+          <span>AI Analysis</span>
+        </div>
+        
+        <div className="text-xs text-gray-500 mb-3">
+          AI analysis based on {documentCount} relevant document sections
+        </div>
+
+        {/* Main Content */}
+        <div className="text-sm leading-relaxed whitespace-pre-wrap">
+          {content}
+        </div>
+
+        {/* Key Sources Section */}
+        {sources && sources.length > 0 && (
+          <div className="mt-6 space-y-3">
+            <div className="flex items-center gap-2 font-semibold text-gray-700">
+              <span>📚</span>
+              <span>Key Sources</span>
+            </div>
+            
+            <div className="text-xs text-gray-500 mb-3">
+              Document excerpts that informed the AI analysis above
+            </div>
+
+            {sources.map((source, sourceIndex) => (
+              <div key={sourceIndex} className="border-l-4 border-gray-200 pl-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-gray-500" />
+                    <span className="font-medium text-gray-900">{source.document_title}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewDocument(source, messages[messages.length - 2]?.content || '')}
+                    className="text-xs"
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    View Document with Highlights
+                  </Button>
+                </div>
+                
+                {source.excerpts && source.excerpts.length > 0 && (
+                  <div className="space-y-1 text-xs">
+                    {source.excerpts.map((excerpt: any, excerptIndex: number) => (
+                      <div key={excerptIndex} className="text-gray-700">
+                        <span className="font-medium">
+                          • {excerpt.page && `Page ${excerpt.page}`}{excerpt.lines && ` • ${excerpt.lines}`}:
+                        </span>
+                        <span className="ml-1">"{excerpt.text}"</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !client || isLoading) return;
 
@@ -63,26 +157,24 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentQuery = inputValue.trim();
     setInputValue('');
     setIsLoading(true);
 
     try {
       // Use the existing search service to get AI responses
-      const response = await searchDocuments(userMessage.content, client.id);
+      const response = await searchDocuments(currentQuery, client.id);
       
-      // Extract sources from consolidated documents
+      // Extract sources from consolidated documents with more detail
       const sources = response.consolidated_documents?.slice(0, 3).map(doc => {
-        // Get unique page numbers from excerpts
-        const pages = doc.excerpts
-          .map(excerpt => excerpt.page)
-          .filter((page): page is number => typeof page === 'number')
-          .filter((page, index, arr) => arr.indexOf(page) === index)
-          .sort((a, b) => a - b);
-
         return {
           document_title: doc.document_title,
           document_file_name: doc.document_file_name,
-          pages: pages.length > 0 ? pages : undefined,
+          excerpts: doc.excerpts.map(excerpt => ({
+            page: excerpt.page,
+            text: excerpt.text,
+            lines: excerpt.lines,
+          })),
         };
       });
 
@@ -92,6 +184,7 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
         content: response.ai_response || 'I couldn\'t find relevant information in the documents.',
         timestamp: new Date(),
         sources,
+        documentCount: response.results?.length || 0,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -148,35 +241,18 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
           
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <Card className={`max-w-[80%] p-3 ${
+              <Card className={`max-w-[90%] p-4 ${
                 message.role === 'user' 
                   ? 'bg-blue-500 text-white' 
                   : 'bg-gray-100'
               }`}>
-                <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                
-                {message.sources && message.sources.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-gray-200">
-                    <p className="text-xs font-medium text-gray-600 mb-1">Sources:</p>
-                    <div className="space-y-1">
-                      {message.sources.map((source, index) => (
-                        <div key={index} className="text-xs text-gray-600">
-                          • {source.document_title}
-                          {source.pages && source.pages.length > 0 && (
-                            <span>
-                              {source.pages.length === 1 
-                                ? `, page ${source.pages[0]}`
-                                : `, pages ${source.pages.join(', ')}`
-                              }
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                {message.role === 'assistant' && message.sources ? (
+                  formatAIResponse(message.content, message.sources, message.documentCount || 0)
+                ) : (
+                  <div className="text-sm whitespace-pre-wrap">{message.content}</div>
                 )}
                 
-                <div className="text-xs opacity-70 mt-1">
+                <div className="text-xs opacity-70 mt-3 pt-2 border-t border-gray-200">
                   {message.timestamp.toLocaleTimeString()}
                 </div>
               </Card>
@@ -188,7 +264,7 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
               <Card className="max-w-[80%] p-3 bg-gray-100">
                 <div className="flex items-center text-sm text-gray-600">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  AI is thinking...
+                  AI is analyzing documents...
                 </div>
               </Card>
             </div>
