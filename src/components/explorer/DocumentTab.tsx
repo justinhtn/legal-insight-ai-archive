@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { X, Search, ChevronUp, ChevronDown } from 'lucide-react';
@@ -28,6 +28,23 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
   const [highlightedContent, setHighlightedContent] = useState('');
   const [currentHighlight, setCurrentHighlight] = useState(0);
 
+  // Debug and handle close function
+  const handleClose = useCallback(() => {
+    console.log('Close button clicked!');
+    console.log('onClose function:', onClose);
+    console.log('onClose type:', typeof onClose);
+    
+    if (onClose && typeof onClose === 'function') {
+      try {
+        onClose();
+      } catch (error) {
+        console.error('Error calling onClose:', error);
+      }
+    } else {
+      console.error('onClose is not a valid function!', onClose);
+    }
+  }, [onClose]);
+
   useEffect(() => {
     if (highlights.length > 0) {
       console.log('Processing highlights for document:', highlights);
@@ -46,7 +63,7 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
     }
   }, [documentContent, highlights]);
 
-  const scrollToHighlight = (index: number) => {
+  const scrollToHighlight = useCallback((index: number) => {
     const element = document.getElementById(`highlight-${index}`);
     if (element) {
       // Remove previous highlight focus
@@ -62,24 +79,44 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setCurrentHighlight(index);
     }
-  };
+  }, []);
 
-  const nextHighlight = () => {
+  const nextHighlight = useCallback(() => {
+    if (highlights.length === 0) return;
     const next = (currentHighlight + 1) % highlights.length;
     scrollToHighlight(next);
-  };
+  }, [currentHighlight, highlights.length, scrollToHighlight]);
 
-  const prevHighlight = () => {
+  const prevHighlight = useCallback(() => {
+    if (highlights.length === 0) return;
     const prev = currentHighlight === 0 ? highlights.length - 1 : currentHighlight - 1;
     scrollToHighlight(prev);
-  };
+  }, [currentHighlight, highlights.length, scrollToHighlight]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleClose();
+      } else if (event.key === 'ArrowUp' && event.ctrlKey) {
+        event.preventDefault();
+        prevHighlight();
+      } else if (event.key === 'ArrowDown' && event.ctrlKey) {
+        event.preventDefault();
+        nextHighlight();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleClose, nextHighlight, prevHighlight]);
 
   useEffect(() => {
     // Auto-scroll to first highlight when component mounts
     if (highlights.length > 0) {
       setTimeout(() => scrollToHighlight(0), 100);
     }
-  }, [highlights]);
+  }, [highlights, scrollToHighlight]);
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -96,11 +133,13 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
               </p>
             )}
           </div>
+          {/* Fixed close button with proper event handling */}
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClose}
-            className="ml-4"
+            onClick={handleClose}
+            className="ml-4 hover:bg-gray-200"
+            type="button"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -119,6 +158,7 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
                 size="sm"
                 onClick={prevHighlight}
                 disabled={highlights.length <= 1}
+                type="button"
               >
                 <ChevronUp className="h-3 w-3" />
               </Button>
@@ -127,6 +167,7 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
                 size="sm"
                 onClick={nextHighlight}
                 disabled={highlights.length <= 1}
+                type="button"
               >
                 <ChevronDown className="h-3 w-3" />
               </Button>
@@ -156,6 +197,7 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
               <button
                 key={index}
                 onClick={() => scrollToHighlight(index)}
+                type="button"
                 className={`w-full text-left p-2 rounded text-xs border transition-colors ${
                   currentHighlight === index 
                     ? 'bg-yellow-100 border-yellow-300' 
