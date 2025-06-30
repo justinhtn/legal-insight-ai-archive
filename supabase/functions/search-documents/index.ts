@@ -160,7 +160,7 @@ Content: "${result.content}"
 
     const model = isSimpleQuery ? 'gpt-3.5-turbo' : 'gpt-4o-mini';
 
-    // Enhanced system prompt with client context
+    // Enhanced system prompt with client context and proper document referencing
     const systemPrompt = `You are a legal document assistant helping attorneys manage client cases. 
 
 ${client_context ? `Current Client Context:\n${client_context}\n` : ''}
@@ -174,6 +174,8 @@ CRITICAL INSTRUCTIONS:
 6. For list questions, format as bullet points
 7. Be precise and factual, no interpretation unless necessary
 8. When referencing documents, use format: Document: [filename] | Section: [section] | Lines: [range]
+9. ALWAYS base your answer on the actual document content provided
+10. Stay consistent with the client context - this is a ${client_context?.match(/Case Type: ([^\n]+)/)?.[1] || 'legal'} case
 
 Examples:
 Q: "What is the client number?"
@@ -212,7 +214,7 @@ Document excerpts are provided below with their titles and location information.
 Document Excerpts:
 ${documentContext}
 
-Provide a direct, concise answer based on these documents.`
+Provide a direct, concise answer based on these documents. When citing information, use the format: Document: [filename] | Section: [section] | Lines: [range]`
           }
         ],
         temperature: 0.1,

@@ -23,6 +23,7 @@ interface ChatMessage {
       text: string;
       lines?: string;
       section?: string;
+      queryRelevance?: number;
     }>;
     document_id?: string;
   }>;
@@ -176,7 +177,10 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
                 
                 {source.excerpts && source.excerpts.length > 0 && (
                   <div className="space-y-1 text-xs ml-6">
-                    {source.excerpts.slice(0, 2).map((excerpt: any, excerptIndex: number) => (
+                    {source.excerpts
+                      .filter((excerpt: any) => excerpt.queryRelevance === undefined || excerpt.queryRelevance > 0.3)
+                      .slice(0, 2)
+                      .map((excerpt: any, excerptIndex: number) => (
                       <div key={excerptIndex} className="text-gray-700">
                         <button
                           onClick={() => handleViewDocument(source, query)}
@@ -224,6 +228,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
             text: excerpt.text,
             lines: excerpt.lines,
             section: excerpt.section,
+            queryRelevance: excerpt.queryRelevance,
           })),
         };
       });
@@ -294,7 +299,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
                 <p className="font-medium">Start a conversation about {client.name}'s case</p>
                 <p className="text-sm">Ask questions about documents, deadlines, or case details</p>
                 <p className="text-xs mt-2 text-gray-400">
-                  Try: "What folders do I have?" or "What claims is being disputed?"
+                  Try: "What folders do I have?" or "What were the ages of the two minors?"
                 </p>
               </div>
             )}

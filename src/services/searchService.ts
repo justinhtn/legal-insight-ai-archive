@@ -28,6 +28,7 @@ export interface ConsolidatedDocument {
     text: string;
     lines?: string;
     section?: string;
+    queryRelevance?: number;
   }>;
   total_pages?: number;
 }
@@ -37,6 +38,73 @@ export interface SearchResponse {
   consolidated_documents: ConsolidatedDocument[];
   ai_response?: string;
   message?: string;
+}
+
+// Extract document references from AI response
+function extractDocumentReferences(aiResponse: string) {
+  const referencePattern = /Document:\s*([^|]+)\s*\|\s*Section:\s*([^|]+)\s*\|\s*Lines:\s*([^\n]+)/g;
+  const references = [];
+  let match;
+  
+  while ((match = referencePattern.exec(aiResponse)) !== null) {
+    references.push({
+      document: match[1].trim(),
+      section: match[2].trim(),
+      lines: match[3].trim()
+    });
+  }
+  
+  return references;
+}
+
+// Calculate relevance of content to user query
+function calculateQueryRelevance(content: string, userQuery: string): number {
+  const queryWords = userQuery.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+  const contentWords = content.toLowerCase().split(/\s+/);
+  
+  let matches = 0;
+  queryWords.forEach(queryWord => {
+    if (contentWords.some(contentWord => contentWord.includes(queryWord) || queryWord.includes(contentWord))) {
+      matches++;
+    }
+  });
+  
+  return queryWords.length > 0 ? matches / queryWords.length : 0;
+}
+
+// Generate targeted highlights based on query relevance
+function generateTargetedHighlights(userQuery: string, aiResponse: string, chunks: SearchResult[]): Array<{
+  page?: number;
+  text: string;
+  lines?: string;
+  section?: string;
+  queryRelevance: number;
+}> {
+  // Extract AI-referenced sections
+  const referencedSections = extractDocumentReferences(aiResponse);
+  
+  // Find chunks that match AI references or are highly relevant to query
+  const relevantChunks = chunks.map(chunk => ({
+    ...chunk,
+    queryRelevance: calculateQueryRelevance(chunk.content, userQuery)
+  }))
+  .filter(chunk => chunk.queryRelevance > 0.3) // Only include relevant content
+  .sort((a, b) => b.queryRelevance - a.queryRelevance)
+  .slice(0, 3); // Top 3 most relevant chunks
+  
+  return relevantChunks.map(chunk => {
+    // Try to extract section information from content
+    const sectionMatch = chunk.content.match(/(?:Section|SECTION)\s*(\d+(?:\.\d+)?)\s*:?\s*([^.\n]+)/i);
+    const section = sectionMatch ? `Section ${sectionMatch[1]}: ${sectionMatch[2].trim()}` : undefined;
+    
+    return {
+      page: chunk.page_number,
+      text: chunk.content.trim(),
+      lines: chunk.line_start && chunk.line_end ? `${chunk.line_start}-${chunk.line_end}` : undefined,
+      section: section,
+      queryRelevance: chunk.queryRelevance
+    };
+  });
 }
 
 function extractKeyPhrases(content: string, pageNumber?: number, lineStart?: number, lineEnd?: number) {
@@ -65,14 +133,14 @@ function calculateRelevanceLevel(scores: number[]): 'High' | 'Medium' | 'Low' {
   return 'Low';
 }
 
-function consolidateSearchResults(chunks: SearchResult[]): ConsolidatedDocument[] {
+function consolidateSearchResults(chunks: SearchResult[], userQuery: string = '', aiResponse: string = ''): ConsolidatedDocument[] {
   const documentMap = new Map<string, {
     document_id: string;
     document_title: string;
     document_file_name: string;
     client: string;
     matter: string;
-    excerpts: Array<{ page?: number; text: string; lines?: string; section?: string }>;
+    excerpts: Array<{ page?: number; text: string; lines?: string; section?: string; queryRelevance?: number }>;
     relevance_scores: number[];
   }>();
 
@@ -91,30 +159,23 @@ function consolidateSearchResults(chunks: SearchResult[]): ConsolidatedDocument[
       });
     }
 
-    // Extract key phrases from chunk content
-    const keyPhrases = extractKeyPhrases(
-      chunk.content, 
-      chunk.page_number, 
-      chunk.line_start, 
-      chunk.line_end
-    );
-    
     const docData = documentMap.get(docId)!;
-    docData.excerpts.push(...keyPhrases);
     docData.relevance_scores.push(chunk.similarity);
   });
 
-  // Convert to array and calculate relevance
-  return Array.from(documentMap.values()).map(doc => ({
-    ...doc,
-    relevance: calculateRelevanceLevel(doc.relevance_scores),
-    // Remove duplicates and limit to most relevant excerpts
-    excerpts: doc.excerpts
-      .filter((excerpt, index, self) => 
-        index === self.findIndex(e => e.text === excerpt.text)
-      )
-      .slice(0, 5) // Limit to top 5 excerpts per document
-  }));
+  // Convert to array and calculate relevance with targeted highlights
+  return Array.from(documentMap.values()).map(doc => {
+    const docChunks = chunks.filter(chunk => chunk.document_id === doc.document_id);
+    const targetedHighlights = userQuery && aiResponse 
+      ? generateTargetedHighlights(userQuery, aiResponse, docChunks)
+      : extractKeyPhrases(docChunks[0]?.content || '', docChunks[0]?.page_number, docChunks[0]?.line_start, docChunks[0]?.line_end);
+    
+    return {
+      ...doc,
+      relevance: calculateRelevanceLevel(doc.relevance_scores),
+      excerpts: targetedHighlights.slice(0, 3) // Limit to top 3 most relevant excerpts
+    };
+  });
 }
 
 export const generateClientContext = async (client: Client): Promise<string> => {
@@ -196,7 +257,7 @@ You can organize documents by uploading them to specific folders.`;
   }
 
   const results = data.results || [];
-  const consolidated_documents = consolidateSearchResults(results);
+  const consolidated_documents = consolidateSearchResults(results, query, data.ai_response);
 
   return {
     results,
