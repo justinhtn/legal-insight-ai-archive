@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getClients, getFolders, Client, Folder } from '@/services/clientService';
@@ -37,6 +36,8 @@ const FileExplorer: React.FC = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [openTabs, setOpenTabs] = useState<DocumentTabData[]>([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [showOverview, setShowOverview] = useState(true);
 
   // Fetch clients
   const { data: clients = [], isLoading: clientsLoading } = useQuery({
@@ -91,7 +92,11 @@ const FileExplorer: React.FC = () => {
         if (existingIndex >= 0) {
           return prev;
         }
-        return [...prev, newTab];
+        const newTabs = [...prev, newTab];
+        // Set as active tab and hide overview
+        setActiveTabId(file.id);
+        setShowOverview(false);
+        return newTabs;
       });
     }
   };
@@ -121,7 +126,25 @@ const FileExplorer: React.FC = () => {
   };
 
   const handleCloseTab = (tabId: string) => {
-    setOpenTabs(prev => prev.filter(tab => tab.id !== tabId));
+    setOpenTabs(prev => {
+      const newTabs = prev.filter(tab => tab.id !== tabId);
+      // If we're closing the active tab, reset to overview
+      if (activeTabId === tabId) {
+        setActiveTabId(null);
+        setShowOverview(true);
+      }
+      return newTabs;
+    });
+  };
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTabId(tabId);
+    setShowOverview(false);
+  };
+
+  const handleShowOverview = () => {
+    setShowOverview(true);
+    setActiveTabId(null);
   };
 
   const fileItems = documents.map(doc => ({
@@ -202,7 +225,11 @@ const FileExplorer: React.FC = () => {
                         <div className="w-1/2 border-l border-gray-200 bg-white">
                           <TabbedDocumentViewer
                             tabs={openTabs}
-                            onCloseTab={handleCloseTab}
+                            activeTabId={activeTabId}
+                            onTabChange={handleTabChange}
+                            onTabClose={handleCloseTab}
+                            onShowOverview={handleShowOverview}
+                            showOverview={showOverview}
                           />
                         </div>
                       )}
