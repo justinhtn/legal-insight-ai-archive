@@ -89,6 +89,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       .replace(/This information is explicitly stated in.*?\./gi, '')
       .replace(/as referenced in.*?,/gi, '')
       .replace(/\(.*?Chunk \d+.*?\)/gi, '')
+      .replace(/\(Document \d+.*?\)/gi, '')
       .trim();
 
     // Split into sentences and take first 1-2 sentences for simple questions
@@ -146,8 +147,12 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
                   <div className="space-y-1 text-xs ml-6">
                     {source.excerpts.slice(0, 2).map((excerpt: any, excerptIndex: number) => (
                       <div key={excerptIndex} className="text-gray-700">
-                        <span className="font-medium">• </span>
-                        <span>"{excerpt.text.length > 100 ? excerpt.text.substring(0, 100) + '...' : excerpt.text}"</span>
+                        <button
+                          onClick={() => handleViewDocument(source, query)}
+                          className="text-blue-600 hover:text-blue-800 hover:underline text-left"
+                        >
+                          • "{excerpt.text.length > 80 ? excerpt.text.substring(0, 80) + '...' : excerpt.text}"
+                        </button>
                       </div>
                     ))}
                   </div>

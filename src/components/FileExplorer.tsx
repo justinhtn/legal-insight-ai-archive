@@ -353,11 +353,11 @@ cases and can see all details in their proper context.`}
 
   return (
     <div className="h-screen bg-gray-50 p-4 overflow-hidden">
-      {/* Gmail-style layout: Client list as background, floating panels */}
+      {/* Updated layout proportions: 15% - 55% - 30% */}
       <div className="flex h-full gap-4">
         
-        {/* Background Section: Client List (NO panel styling) - Fixed Height with Internal Scroll */}
-        <div className="w-64 flex-shrink-0 h-full overflow-hidden">
+        {/* Client List - Narrower (15%) */}
+        <div className="w-1/6 flex-shrink-0 h-full overflow-hidden">
           <ClientSidebar
             clients={clients}
             selectedClientId={selectedClient?.id}
@@ -367,15 +367,39 @@ cases and can see all details in their proper context.`}
           />
         </div>
 
-        {/* Floating Panels Section */}
-        <div className="flex-1 flex gap-4 min-w-0 h-full overflow-hidden">
-          
-          {/* Floating Panel 1: Main Content - Fixed Height with Internal Scroll */}
-          <div className="flex-1 bg-white rounded-lg shadow-sm border flex flex-col min-w-0 h-full overflow-hidden">
-            {selectedClient ? (
-              <>
-                {/* Tab Bar - SINGLE INSTANCE ONLY */}
-                <div className="sticky top-0 z-10 bg-white border-b rounded-t-lg flex-shrink-0">
+        {/* Main Content - Smaller (55%) */}
+        <div className="flex-1 bg-white rounded-lg shadow-sm border flex flex-col min-w-0 h-full overflow-hidden" style={{ flex: '0 0 55%' }}>
+          {selectedClient ? (
+            <>
+              {/* Tab Bar - SINGLE INSTANCE ONLY */}
+              <div className="sticky top-0 z-10 bg-white border-b rounded-t-lg flex-shrink-0">
+                <TabbedDocumentViewer
+                  tabs={documentTabs}
+                  activeTabId={activeTabId}
+                  onTabChange={handleTabChange}
+                  onTabClose={handleTabClose}
+                  onShowOverview={handleShowOverview}
+                  showOverview={showOverview}
+                  showTabsOnly={true}
+                />
+              </div>
+
+              {/* Content area - Scrollable */}
+              <div className="flex-1 overflow-hidden">
+                {showOverview ? (
+                  <ClientContentPanel
+                    client={selectedClient}
+                    selectedFolderId={selectedFolderId}
+                    onFolderSelect={handleFolderSelect}
+                    onNewFolder={() => setShowNewFolderDialog(true)}
+                    onUpload={handleUploadWithContext}
+                    onClientUpdated={handleClientUpdated}
+                    onOpenDocument={handleOpenDocument}
+                    isChatOpen={currentChatState.isOpen}
+                    onToggleChat={handleToggleChat}
+                    onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
+                  />
+                ) : (
                   <TabbedDocumentViewer
                     tabs={documentTabs}
                     activeTabId={activeTabId}
@@ -383,69 +407,41 @@ cases and can see all details in their proper context.`}
                     onTabClose={handleTabClose}
                     onShowOverview={handleShowOverview}
                     showOverview={showOverview}
-                    showTabsOnly={true}
+                    showTabsOnly={false}
                   />
-                </div>
-
-                {/* Content area - Scrollable */}
-                <div className="flex-1 overflow-hidden">
-                  {showOverview ? (
-                    <ClientContentPanel
-                      client={selectedClient}
-                      selectedFolderId={selectedFolderId}
-                      onFolderSelect={handleFolderSelect}
-                      onNewFolder={() => setShowNewFolderDialog(true)}
-                      onUpload={handleUploadWithContext}
-                      onClientUpdated={handleClientUpdated}
-                      onOpenDocument={handleOpenDocument}
-                      isChatOpen={currentChatState.isOpen}
-                      onToggleChat={handleToggleChat}
-                      onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
-                    />
-                  ) : (
-                    <TabbedDocumentViewer
-                      tabs={documentTabs}
-                      activeTabId={activeTabId}
-                      onTabChange={handleTabChange}
-                      onTabClose={handleTabClose}
-                      onShowOverview={handleShowOverview}
-                      showOverview={showOverview}
-                      showTabsOnly={false}
-                    />
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    Welcome to Your Legal Archive
-                  </h2>
-                  <p className="text-gray-600 mb-6">
-                    Select a client from the sidebar to view their documents and folders
-                  </p>
-                  {clients.length === 0 && !isLoadingClients && (
-                    <Button onClick={() => setShowNewClientDialog(true)}>
-                      Create Your First Client
-                    </Button>
-                  )}
-                </div>
+                )}
               </div>
-            )}
-          </div>
-
-          {/* Floating Panel 2: Chat (when open) - Fixed Height */}
-          {selectedClient && currentChatState.isOpen && (
-            <div className="w-80 bg-white rounded-lg shadow-sm border flex-shrink-0 h-full overflow-hidden">
-              <GmailStyleChat
-                client={selectedClient}
-                isOpen={true}
-                onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
-                onToggle={handleToggleChat}
-              />
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                  Welcome to Your Legal Archive
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  Select a client from the sidebar to view their documents and folders
+                </p>
+                {clients.length === 0 && !isLoadingClients && (
+                  <Button onClick={() => setShowNewClientDialog(true)}>
+                    Create Your First Client
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>
+
+        {/* Chat Panel - Wider (30%) */}
+        {selectedClient && currentChatState.isOpen && (
+          <div className="w-1/3 bg-white rounded-lg shadow-sm border flex-shrink-0 h-full overflow-hidden" style={{ flex: '0 0 30%' }}>
+            <GmailStyleChat
+              client={selectedClient}
+              isOpen={true}
+              onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
+              onToggle={handleToggleChat}
+            />
+          </div>
+        )}
       </div>
 
       {/* Dialogs remain the same */}

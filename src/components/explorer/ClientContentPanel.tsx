@@ -120,6 +120,10 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
     onFolderSelect(folderId);
   };
 
+  const handleNavigateToRoot = () => {
+    onFolderSelect(null);
+  };
+
   // Filter folders based on current selection
   const displayFolders = selectedFolderId 
     ? folders.filter(f => f.parent_folder_id === selectedFolderId)
@@ -138,7 +142,7 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
             className="flex items-center gap-2"
           >
             <MessageCircle className="h-4 w-4" />
-            {isChatOpen ? 'Close Chat' : 'Open Chat'}
+            {isChatOpen ? 'Chat Open' : 'Open Chat'}
           </Button>
         </div>
         <ClientInfoPanel
@@ -161,6 +165,7 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
             onRefresh={refreshData}
             onFileClick={onOpenDocument}
             onFolderClick={handleFolderClick}
+            onNavigateToRoot={handleNavigateToRoot}
           />
         </div>
       </div>

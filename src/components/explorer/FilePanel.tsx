@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { FileText, Upload, RefreshCw, Folder, ChevronUp, ChevronDown } from 'lucide-react';
+import { FileText, Upload, RefreshCw, Folder, ChevronUp, ChevronDown, ChevronRight, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 
 interface FileItem {
   id: string;
@@ -22,6 +23,7 @@ interface FilePanelProps {
   onRefresh: () => void;
   onFileClick?: (file: FileItem) => void;
   onFolderClick?: (folderId: string) => void;
+  onNavigateToRoot?: () => void;
 }
 
 type SortField = 'name' | 'modified' | 'size' | 'kind';
@@ -36,7 +38,8 @@ const FilePanel: React.FC<FilePanelProps> = ({
   isLoading = false,
   onRefresh,
   onFileClick,
-  onFolderClick
+  onFolderClick,
+  onNavigateToRoot
 }) => {
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -145,6 +148,33 @@ const FilePanel: React.FC<FilePanelProps> = ({
 
   return (
     <div className="flex flex-col h-full">
+      {/* Breadcrumb Navigation */}
+      <div className="px-4 py-2 border-b bg-gray-50 flex-shrink-0">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink 
+                className="flex items-center gap-1 cursor-pointer hover:text-blue-600"
+                onClick={onNavigateToRoot}
+              >
+                <Home className="h-3 w-3" />
+                All Items
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {selectedFolderId && folderName && (
+              <>
+                <BreadcrumbSeparator>
+                  <ChevronRight className="h-3 w-3" />
+                </BreadcrumbSeparator>
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{folderName}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </>
+            )}
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+
       {/* Header with buttons */}
       <div className="p-4 border-b bg-white flex-shrink-0">
         <div className="flex items-center justify-between">

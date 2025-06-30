@@ -127,7 +127,7 @@ serve(async (req) => {
         }
       })
       .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 20) // Get top 20 for RAG context
+      .slice(0, 15) // Reduce to top 15 for better performance
 
     console.log(`Found ${results.length} document chunks for RAG analysis`)
 
@@ -143,14 +143,22 @@ serve(async (req) => {
 Title: ${result.documents.title}
 File: ${result.documents.file_name}
 ${pageInfo} | ${lineInfo}
-Client: ${metadata.client || 'Unknown'}
-Matter: ${metadata.matter || 'Unknown'}
-Similarity: ${Math.round(result.similarity * 100)}%
 Content: "${result.content}"
 ---`;
     }).join('\n\n');
 
-    // Generate enhanced RAG response using OpenAI
+    // Determine model based on query complexity
+    const isSimpleQuery = query.length < 50 && (
+      query.toLowerCase().includes('what is') ||
+      query.toLowerCase().includes('when') ||
+      query.toLowerCase().includes('who') ||
+      query.toLowerCase().includes('how much') ||
+      query.toLowerCase().includes('number')
+    );
+
+    const model = isSimpleQuery ? 'gpt-3.5-turbo' : 'gpt-4o-mini';
+
+    // Generate enhanced RAG response using OpenAI with improved system prompt
     console.log('Generating RAG response with OpenAI...')
     const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -159,23 +167,35 @@ Content: "${result.content}"
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: model,
         messages: [
           {
             role: 'system',
-            content: `You are a senior attorney's AI assistant. Using the provided document excerpts, provide a comprehensive answer to the user's query.
+            content: `You are a senior attorney's AI assistant. Using the provided document excerpts, provide direct, concise answers.
 
-IMPORTANT INSTRUCTIONS:
-- Synthesize information naturally across documents, don't just list facts
-- Use professional legal language appropriate for an attorney
-- When citing information, reference the specific document title, page number, and lines
-- If documents contain conflicting information, note this clearly
-- Be specific about which client's documents contain which information
-- Structure your response clearly with main points and supporting details
-- When referencing content, use exact quotes with proper citations
-- If no relevant information is found, say so clearly
+CRITICAL INSTRUCTIONS:
+1. SCAN for the EXACT answer in the documents
+2. Give the MOST DIRECT answer possible - usually 1-2 sentences
+3. Do NOT add boilerplate phrases like "If you require further details..." or "Review the highlighted sources..."
+4. Do NOT repeat document location information in your response
+5. Quote directly from documents when possible
+6. For list questions, format as bullet points
+7. Be precise and factual, no interpretation unless necessary
 
-Document excerpts are provided below with their titles, page numbers, line numbers, client information, and similarity scores.`
+Examples:
+Q: "What is the client number?"
+A: "2025-0847"
+
+Q: "What claims is Mr Houghton disputing?"
+A: "Mr. Houghton disputes these claims:
+• The real-time synchronization feature was added as a verbal request
+• The UI changes were requested and approved by TechVentures' project manager, Diana Lee  
+• The software passed all 147 acceptance tests"
+
+Q: "When was the contract signed?"
+A: "January 15, 2025"
+
+Document excerpts are provided below with their titles and page information.`
           },
           {
             role: 'user',
@@ -184,11 +204,11 @@ Document excerpts are provided below with their titles, page numbers, line numbe
 Document Excerpts:
 ${documentContext}
 
-Please provide a comprehensive answer based on these documents. Include specific citations with page numbers and document names for each key point.`
+Provide a direct, concise answer based on these documents.`
           }
         ],
-        temperature: 0.3,
-        max_tokens: 1500
+        temperature: 0.1,
+        max_tokens: 500 // Limit response length
       }),
     })
 
@@ -204,7 +224,7 @@ Please provide a comprehensive answer based on these documents. Include specific
     // Return enhanced response with detailed source documents
     const sourceDocuments = results
       .filter(result => result.similarity > 0.2)
-      .slice(0, 10)
+      .slice(0, 8) // Reduce to top 8 sources
       .map(result => {
         const metadata = result.metadata || {};
         return {
