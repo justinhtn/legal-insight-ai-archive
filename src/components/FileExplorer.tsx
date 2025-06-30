@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { clientService, Client, Folder, Document } from '@/services/clientService';
+import { getClients, getFolders, Client, Folder } from '@/services/clientService';
+import { getDocuments } from '@/services/documentService';
 import ClientSidebar from './explorer/ClientSidebar';
 import FilePanel from './explorer/FilePanel';
 import ClientContentPanel from './explorer/ClientContentPanel';
@@ -12,31 +13,48 @@ import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Files, MessageSquare, Settings } from 'lucide-react';
 
+interface Document {
+  id: string;
+  name: string;
+  size: number;
+  uploaded_at: string;
+}
+
+interface DocumentTabData {
+  id: string;
+  name: string;
+  type: 'document' | 'folder';
+  title: string;
+  content?: string;
+  highlights?: string[];
+  query?: string;
+}
+
 const FileExplorer: React.FC = () => {
   const [selectedClientId, setSelectedClientId] = useState<string>();
   const [selectedFolderId, setSelectedFolderId] = useState<string>();
   const [activeTab, setActiveTab] = useState<'files' | 'chat' | 'settings'>('files');
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [openTabs, setOpenTabs] = useState<{ id: string; name: string; type: 'document' | 'folder' }[]>([]);
+  const [openTabs, setOpenTabs] = useState<DocumentTabData[]>([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Fetch clients
   const { data: clients = [], isLoading: clientsLoading } = useQuery({
     queryKey: ['clients'],
-    queryFn: clientService.getClients,
+    queryFn: getClients,
   });
 
   // Fetch folders for selected client
   const { data: folders = [], isLoading: foldersLoading, refetch: refetchFolders } = useQuery({
     queryKey: ['folders', selectedClientId],
-    queryFn: () => selectedClientId ? clientService.getFolders(selectedClientId) : Promise.resolve([]),
+    queryFn: () => selectedClientId ? getFolders(selectedClientId) : Promise.resolve([]),
     enabled: !!selectedClientId,
   });
 
   // Fetch documents for selected folder
   const { data: documents = [], isLoading: documentsLoading, refetch: refetchDocuments } = useQuery({
     queryKey: ['documents', selectedFolderId],
-    queryFn: () => selectedFolderId ? clientService.getDocuments(selectedFolderId) : Promise.resolve([]),
+    queryFn: () => selectedFolderId ? getDocuments(selectedFolderId) : Promise.resolve([]),
     enabled: !!selectedFolderId,
   });
 
@@ -58,8 +76,16 @@ const FileExplorer: React.FC = () => {
   };
 
   const handleFileClick = (file: any) => {
-    if (file.type === 'document') {
-      const newTab = { id: file.id, name: file.name, type: 'document' as const };
+    if (file.type === 'document' || file.type === 'file') {
+      const newTab: DocumentTabData = { 
+        id: file.id, 
+        name: file.name, 
+        type: 'document',
+        title: file.name,
+        content: '',
+        highlights: [],
+        query: ''
+      };
       setOpenTabs(prev => {
         const existingIndex = prev.findIndex(tab => tab.id === file.id);
         if (existingIndex >= 0) {
@@ -177,7 +203,6 @@ const FileExplorer: React.FC = () => {
                   <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">
                     <ClientContentPanel
                       client={selectedClient}
-                      isLoading={clientsLoading}
                     />
                   </TabsContent>
 
@@ -211,21 +236,13 @@ const FileExplorer: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating Chat Panel */}
-      <FloatingChatPanel
-        isOpen={isChatOpen}
-        onToggle={() => setIsChatOpen(!isChatOpen)}
-        client={selectedClient}
-      />
-
       {/* Upload Modal */}
       {showUploadModal && (
         <DocumentUploadModal
           isOpen={showUploadModal}
           onClose={() => setShowUploadModal(false)}
-          clientId={selectedClientId!}
+          onUpload={handleUploadSuccess}
           folderId={selectedFolderId}
-          onUploadSuccess={handleUploadSuccess}
         />
       )}
     </div>

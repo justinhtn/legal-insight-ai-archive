@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Upload, Search, FolderOpen, FileText, Moon, Sun, Home, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -161,12 +162,7 @@ const Index = () => {
         );
       
       case 'explorer':
-        return (
-          <FileExplorer 
-            onUpload={() => setIsUploadOpen(true)}
-            onNavigateToSearch={() => setViewMode('search')}
-          />
-        );
+        return <FileExplorer />;
       
       default: // home
         return (
