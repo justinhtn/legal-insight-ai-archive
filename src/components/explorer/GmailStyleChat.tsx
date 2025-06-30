@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Loader2, FileText, ExternalLink, Settings, Calendar, User, X } from 'lucide-react';
+import { MessageCircle, Send, Loader2, FileText, ExternalLink, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -224,60 +224,11 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
   };
 
   if (!client) {
-    return (
-      <div className="fixed right-3 top-3 bottom-3 w-16 bg-white rounded-lg shadow-sm border flex flex-col items-center justify-start p-2 z-50">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-12 h-12 p-0 mb-2 opacity-50"
-          disabled
-        >
-          <MessageCircle className="h-6 w-6 text-gray-400" />
-        </Button>
-        <div className="flex flex-col gap-2">
-          <Button variant="ghost" size="sm" className="w-12 h-12 p-0 opacity-50" disabled>
-            <Settings className="h-5 w-5 text-gray-400" />
-          </Button>
-          <Button variant="ghost" size="sm" className="w-12 h-12 p-0 opacity-50" disabled>
-            <Calendar className="h-5 w-5 text-gray-400" />
-          </Button>
-          <Button variant="ghost" size="sm" className="w-12 h-12 p-0 opacity-50" disabled>
-            <User className="h-5 w-5 text-gray-400" />
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isOpen) {
-    return (
-      <div className="fixed right-3 top-3 bottom-3 w-16 bg-white rounded-lg shadow-sm border flex flex-col items-center justify-start p-2 z-50">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onToggle}
-          className="w-12 h-12 p-0 mb-2 hover:bg-blue-50"
-          title={`Chat about ${client.name}'s case`}
-        >
-          <MessageCircle className="h-6 w-6 text-blue-600" />
-        </Button>
-        <div className="flex flex-col gap-2">
-          <Button variant="ghost" size="sm" className="w-12 h-12 p-0" title="Settings">
-            <Settings className="h-5 w-5 text-gray-600" />
-          </Button>
-          <Button variant="ghost" size="sm" className="w-12 h-12 p-0" title="Calendar">
-            <Calendar className="h-5 w-5 text-gray-600" />
-          </Button>
-          <Button variant="ghost" size="sm" className="w-12 h-12 p-0" title="Client Info">
-            <User className="h-5 w-5 text-gray-600" />
-          </Button>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className="fixed right-3 top-3 bottom-3 w-80 bg-white rounded-lg shadow-lg border flex flex-col z-50">
+    <div className="h-full flex flex-col">
       {/* Header */}
       <div className="p-4 border-b bg-gray-50 rounded-t-lg flex items-center justify-between">
         <div className="flex items-center">
@@ -355,30 +306,6 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
             size="icon"
           >
             <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Sidebar Icons */}
-      <div className="absolute -left-16 top-0 w-16 bg-white rounded-lg shadow-sm border flex flex-col items-center justify-start p-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onToggle}
-          className="w-12 h-12 p-0 mb-2 bg-blue-50"
-          title={`Chat about ${client.name}'s case`}
-        >
-          <MessageCircle className="h-6 w-6 text-blue-600" />
-        </Button>
-        <div className="flex flex-col gap-2">
-          <Button variant="ghost" size="sm" className="w-12 h-12 p-0" title="Settings">
-            <Settings className="h-5 w-5 text-gray-600" />
-          </Button>
-          <Button variant="ghost" size="sm" className="w-12 h-12 p-0" title="Calendar">
-            <Calendar className="h-5 w-5 text-gray-600" />
-          </Button>
-          <Button variant="ghost" size="sm" className="w-12 h-12 p-0" title="Client Info">
-            <User className="h-5 w-5 text-gray-600" />
           </Button>
         </div>
       </div>

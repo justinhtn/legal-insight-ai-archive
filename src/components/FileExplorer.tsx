@@ -81,6 +81,11 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
       setSelectedClient(client);
       setSelectedFolderId(null);
       
+      // Clear document tabs when switching clients
+      setDocumentTabs([]);
+      setActiveTabId(null);
+      setShowOverview(true);
+      
       // Initialize chat state for client if it doesn't exist
       if (!chatStates[clientId]) {
         setChatStates(prev => ({
@@ -113,6 +118,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
   };
 
   const handleOpenDocumentWithHighlights = (document: any, highlights: any[], query: string) => {
+    const tabId = `${document.document_file_name}-${query}-${Date.now()}`;
+    
+    // Check if this exact document + query combo already exists
     const existingTabIndex = documentTabs.findIndex(tab => 
       tab.title === document.document_title && tab.query === query
     );
@@ -146,8 +154,6 @@ ${excerpt.text}
 
 This ensures users can read the full context around highlighted sections and understand the complete document structure and content.`;
     
-    const tabId = `${document.document_file_name}-${query}-${Date.now()}`;
-    
     const newTab: DocumentTabData = {
       id: tabId,
       title: document.document_title,
@@ -162,7 +168,9 @@ This ensures users can read the full context around highlighted sections and und
   };
 
   const handleOpenDocument = async (document: any) => {
-    // Check if tab already exists for this document
+    const tabId = `${document.name}-${Date.now()}`;
+    
+    // Check if this document is already open (without query)
     const existingTabIndex = documentTabs.findIndex(tab => 
       tab.title === document.name && !tab.query
     );
@@ -184,7 +192,7 @@ This ensures users can read the full context around highlighted sections and und
 
       if (error) throw error;
 
-      // Create full document content - in real implementation, this would be the actual document text
+      // Create full document content
       const fullDocumentContent = `${fullDoc.file_name}
 
 FULL DOCUMENT CONTENT
@@ -213,8 +221,6 @@ This ensures lawyers have access to the full document when reviewing
 cases and can see all details in their proper context.`}
 
 [End of Document]`;
-      
-      const tabId = `${document.name}-${Date.now()}`;
       
       const newTab: DocumentTabData = {
         id: tabId,
@@ -346,9 +352,8 @@ cases and can see all details in their proper context.`}
   const currentChatState = getCurrentChatState();
 
   return (
-    <div className="h-full bg-gray-50 relative">
-      {/* Gmail-style layout with proper spacing */}
-      <div className="flex h-full gap-3 p-3">
+    <div className="h-full bg-gray-100 p-3">
+      <div className="flex h-full gap-3">
         {/* Panel 1: Client Sidebar */}
         <div className="w-64 bg-white rounded-lg shadow-sm border">
           <ClientSidebar
@@ -362,7 +367,7 @@ cases and can see all details in their proper context.`}
 
         {/* Panel 2: Main Content Area */}
         <div className={`flex-1 bg-white rounded-lg shadow-sm border transition-all duration-300 ${
-          currentChatState.isOpen ? 'mr-80' : 'mr-0'
+          currentChatState.isOpen ? 'mr-80' : ''
         }`}>
           {selectedClient ? (
             <div className="flex flex-col h-full">
@@ -426,13 +431,17 @@ cases and can see all details in their proper context.`}
           )}
         </div>
 
-        {/* Gmail-style Chat Panel */}
-        <GmailStyleChat
-          client={selectedClient}
-          isOpen={currentChatState.isOpen}
-          onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
-          onToggle={handleToggleChat}
-        />
+        {/* Panel 3: Fixed Chat Panel with Gmail styling */}
+        {currentChatState.isOpen && (
+          <div className="w-80 bg-white rounded-lg shadow-sm border">
+            <GmailStyleChat
+              client={selectedClient}
+              isOpen={true}
+              onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
+              onToggle={handleToggleChat}
+            />
+          </div>
+        )}
       </div>
 
       {/* Dialogs remain the same */}
