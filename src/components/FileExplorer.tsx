@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getClients, getFolders, Client, Folder } from '@/services/clientService';
@@ -149,6 +148,33 @@ const FileExplorer: React.FC = () => {
     setActiveTabId(null);
   };
 
+  const handleDocumentOpen = (document: any, highlights: any[], query: string) => {
+    const newTab: DocumentTabData = {
+      id: document.document_file_name || document.id,
+      name: document.document_title || document.name,
+      type: 'document',
+      title: document.document_title || document.name,
+      content: '',
+      highlights: highlights,
+      query: query
+    };
+    
+    setOpenTabs(prev => {
+      const existingIndex = prev.findIndex(tab => tab.id === newTab.id);
+      if (existingIndex >= 0) {
+        const updated = [...prev];
+        updated[existingIndex] = newTab;
+        setActiveTabId(newTab.id);
+        setShowOverview(false);
+        return updated;
+      }
+      const newTabs = [...prev, newTab];
+      setActiveTabId(newTab.id);
+      setShowOverview(false);
+      return newTabs;
+    });
+  };
+
   const fileItems = documents.map(doc => ({
     id: doc.id,
     name: doc.name,
@@ -262,57 +288,28 @@ const FileExplorer: React.FC = () => {
           )}
         </div>
 
-        {/* Chat Panel Toggle */}
-        {selectedClientId && (
-          <div className="flex-shrink-0">
-            <Button
-              onClick={() => setIsChatOpen(!isChatOpen)}
-              variant="outline"
-              size="sm"
-              className="m-2"
-            >
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Chat
-            </Button>
-          </div>
-        )}
-
         {/* Chat Panel */}
         {selectedClientId && isChatOpen && (
-          <div className="w-80 border-l border-gray-200 bg-white">
-            <FloatingChatPanel
-              isOpen={isChatOpen}
-              onClose={() => setIsChatOpen(false)}
-              selectedClientId={selectedClientId}
-              onDocumentOpen={(doc) => {
-                const newTab: DocumentTabData = {
-                  id: doc.id,
-                  name: doc.name,
-                  type: 'document',
-                  title: doc.title,
-                  content: doc.content,
-                  highlights: doc.highlights,
-                  query: doc.query
-                };
-                setOpenTabs(prev => {
-                  const existingIndex = prev.findIndex(tab => tab.id === doc.id);
-                  if (existingIndex >= 0) {
-                    const updated = [...prev];
-                    updated[existingIndex] = newTab;
-                    setActiveTabId(doc.id);
-                    setShowOverview(false);
-                    return updated;
-                  }
-                  const newTabs = [...prev, newTab];
-                  setActiveTabId(doc.id);
-                  setShowOverview(false);
-                  return newTabs;
-                });
-              }}
-            />
-          </div>
+          <FloatingChatPanel
+            client={selectedClient || null}
+            onOpenDocumentWithHighlights={handleDocumentOpen}
+          />
         )}
       </div>
+
+      {/* Chat Toggle Button */}
+      {selectedClientId && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <Button
+            onClick={() => setIsChatOpen(!isChatOpen)}
+            variant="default"
+            size="icon"
+            className="w-12 h-12 rounded-full shadow-lg"
+          >
+            <MessageSquare className="h-6 w-6" />
+          </Button>
+        </div>
+      )}
 
       {/* Upload Modal */}
       {showUploadModal && (
