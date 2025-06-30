@@ -8,6 +8,13 @@ const DocumentTabManager: React.FC = () => {
 
   if (openTabs.length === 0) return null;
 
+  const handleTabClose = (e: React.MouseEvent, tabId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Tab close button clicked for:', tabId);
+    handleCloseTab(tabId);
+  };
+
   return (
     <div className="document-tabs">
       {/* Overview Tab */}
@@ -31,11 +38,9 @@ const DocumentTabManager: React.FC = () => {
             <Lightbulb className="h-3 w-3 text-yellow-500 flex-shrink-0" />
           )}
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCloseTab(tab.id);
-            }}
-            className="close-button"
+            onClick={(e) => handleTabClose(e, tab.id)}
+            className="close-button ml-2 hover:bg-gray-200 rounded p-1 -m-1"
+            type="button"
           >
             <X className="h-3 w-3" />
           </button>

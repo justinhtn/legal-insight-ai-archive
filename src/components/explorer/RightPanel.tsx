@@ -1,0 +1,69 @@
+
+import React from 'react';
+import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import GmailStyleChatPanel from './GmailStyleChatPanel';
+import ClientInfoPanel from '../finder/ClientInfoPanel';
+import { Client } from '@/services/clientService';
+
+interface RightPanelProps {
+  isOpen: boolean;
+  mode: 'chat' | 'client-info' | null;
+  selectedClient: Client | null;
+  onClose: () => void;
+  onClientUpdated: (client: Client) => void;
+  onOpenDocumentWithHighlights: (document: any, highlights: any[], query: string) => void;
+}
+
+const RightPanel: React.FC<RightPanelProps> = ({
+  isOpen,
+  mode,
+  selectedClient,
+  onClose,
+  onClientUpdated,
+  onOpenDocumentWithHighlights
+}) => {
+  if (!isOpen || !mode) return null;
+
+  return (
+    <div className="w-80 flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
+      {/* Header */}
+      <div className="h-12 px-4 border-b bg-gray-50 flex items-center justify-between">
+        <h3 className="font-semibold text-gray-900">
+          {mode === 'chat' ? 'Chat' : 'Client Information'}
+        </h3>
+        <Button
+          onClick={onClose}
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-hidden">
+        {mode === 'chat' && selectedClient && (
+          <GmailStyleChatPanel
+            client={selectedClient}
+            isOpen={isOpen}
+            onOpenDocumentWithHighlights={onOpenDocumentWithHighlights}
+            onToggle={onClose}
+          />
+        )}
+        
+        {mode === 'client-info' && selectedClient && (
+          <div className="p-4">
+            <ClientInfoPanel
+              client={selectedClient}
+              onClientUpdated={onClientUpdated}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default RightPanel;

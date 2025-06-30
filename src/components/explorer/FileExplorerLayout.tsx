@@ -4,24 +4,26 @@ import { FileText } from 'lucide-react';
 import DocumentTabManager from './DocumentTabManager';
 import ClientExplorer from './ClientExplorer';
 import TabbedDocumentViewer from './TabbedDocumentViewer';
-import ChatIntegration from './ChatIntegration';
+import ExplorerHeader from './ExplorerHeader';
+import RightPanel from './RightPanel';
 import DocumentUploadModal from '../DocumentUploadModal';
 import { useFileExplorer } from '@/contexts/FileExplorerContext';
 import { useDocumentTabs } from '@/hooks/useDocumentTabs';
-import { useChatIntegration } from '@/hooks/useChatIntegration';
 import { useQuery } from '@tanstack/react-query';
-import { getClients, getFolders } from '@/services/clientService';
+import { getClients, getFolders, Client } from '@/services/clientService';
 import { getDocuments } from '@/services/documentService';
 import { toast } from 'sonner';
 
 const FileExplorerLayout: React.FC = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [rightPanelMode, setRightPanelMode] = useState<'chat' | 'client-info' | null>(null);
+  
   const { selectedClientId, selectedFolderId } = useFileExplorer();
-  const { openTabs, activeTabId, showOverview } = useDocumentTabs();
-  const { isChatOpen } = useChatIntegration();
+  const { openTabs, activeTabId, showOverview, handleDocumentOpen } = useDocumentTabs();
 
   // Get selected client data
-  const { data: clients = [] } = useQuery({
+  const { data: clients = [], refetch: refetchClients } = useQuery({
     queryKey: ['clients'],
     queryFn: getClients,
   });
@@ -39,6 +41,36 @@ const FileExplorerLayout: React.FC = () => {
   });
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
+
+  const handleToggleChat = () => {
+    if (rightPanelOpen && rightPanelMode === 'chat') {
+      setRightPanelOpen(false);
+      setRightPanelMode(null);
+    } else {
+      setRightPanelOpen(true);
+      setRightPanelMode('chat');
+    }
+  };
+
+  const handleToggleClientInfo = () => {
+    if (rightPanelOpen && rightPanelMode === 'client-info') {
+      setRightPanelOpen(false);
+      setRightPanelMode(null);
+    } else {
+      setRightPanelOpen(true);
+      setRightPanelMode('client-info');
+    }
+  };
+
+  const handleCloseRightPanel = () => {
+    setRightPanelOpen(false);
+    setRightPanelMode(null);
+  };
+
+  const handleClientUpdated = (updatedClient: Client) => {
+    refetchClients();
+    toast.success('Client information updated successfully');
+  };
 
   const handleUpload = () => {
     setShowUploadModal(true);
@@ -62,21 +94,31 @@ const FileExplorerLayout: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-white">
+      {/* Header */}
+      <ExplorerHeader
+        isChatOpen={rightPanelOpen && rightPanelMode === 'chat'}
+        isClientInfoOpen={rightPanelOpen && rightPanelMode === 'client-info'}
+        onToggleChat={handleToggleChat}
+        onToggleClientInfo={handleToggleClientInfo}
+        selectedClientName={selectedClient?.name}
+      />
+
       {/* Document Tabs - Always visible when there are open tabs */}
       {openTabs.length > 0 && <DocumentTabManager />}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Always show the client explorer */}
+        {/* Client Explorer - Always visible */}
         <ClientExplorer
           onUpload={handleUpload}
           onRefresh={handleRefresh}
           onNewClient={handleNewClient}
         />
 
-        {/* Document Viewer - Only show when there are open tabs and not showing overview */}
-        {openTabs.length > 0 && !showOverview && activeTabId && (
-          <div className="w-1/2 border-l border-gray-200 bg-white">
+        {/* Main Content Panel */}
+        <div className="flex-1 flex flex-col">
+          {/* Document Viewer - Only show when there are open tabs and not showing overview */}
+          {openTabs.length > 0 && !showOverview && activeTabId ? (
             <TabbedDocumentViewer
               tabs={openTabs}
               activeTabId={activeTabId}
@@ -86,30 +128,34 @@ const FileExplorerLayout: React.FC = () => {
               showOverview={showOverview}
               showTabsOnly={false}
             />
-          </div>
-        )}
-
-        {/* Welcome message when no client is selected */}
-        {!selectedClientId && (
-          <div className="flex-1 flex items-center justify-center bg-white">
-            <div className="text-center">
-              <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                Welcome to Legal Document Manager
-              </h2>
-              <p className="text-gray-500 text-lg">
-                Select a client from the sidebar to view their files and folders
-              </p>
+          ) : (
+            /* Welcome message when no client is selected or showing overview */
+            <div className="flex-1 flex items-center justify-center bg-white">
+              <div className="text-center">
+                <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                  {!selectedClientId ? 'Welcome to Legal Document Manager' : 'Overview'}
+                </h2>
+                <p className="text-gray-500 text-lg">
+                  {!selectedClientId 
+                    ? 'Select a client from the sidebar to view their files and folders'
+                    : 'Select a document to view its contents'
+                  }
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Chat Panel - True flex panel that pushes content */}
-        {isChatOpen && (
-          <div className="w-80 flex-shrink-0 border-l border-gray-200 bg-white">
-            <ChatIntegration selectedClient={selectedClient || null} />
-          </div>
-        )}
+        {/* Right Panel - Chat or Client Info */}
+        <RightPanel
+          isOpen={rightPanelOpen}
+          mode={rightPanelMode}
+          selectedClient={selectedClient || null}
+          onClose={handleCloseRightPanel}
+          onClientUpdated={handleClientUpdated}
+          onOpenDocumentWithHighlights={handleDocumentOpen}
+        />
       </div>
 
       {/* Upload Modal */}

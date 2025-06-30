@@ -1,5 +1,6 @@
 
 import { useFileExplorer } from '@/contexts/FileExplorerContext';
+import { getDocumentContent } from '@/services/documentContentService';
 
 interface DocumentTabData {
   id: string;
@@ -31,6 +32,7 @@ export const useDocumentTabs = () => {
   };
 
   const handleCloseTab = (tabId: string) => {
+    console.log('Closing tab:', tabId);
     setOpenTabs(prev => {
       const newTabs = prev.filter(tab => tab.id !== tabId);
       if (activeTabId === tabId) {
@@ -50,15 +52,24 @@ export const useDocumentTabs = () => {
     setActiveTabId(null);
   };
 
-  const handleDocumentOpen = (document: any, highlights: any[], query: string) => {
+  const handleDocumentOpen = async (document: any, highlights: any[], query: string) => {
     console.log('Opening document with highlights', { document, highlights, query });
+    
+    // Fetch the actual document content
+    let content = '';
+    try {
+      content = await getDocumentContent(document.id);
+    } catch (error) {
+      console.error('Failed to fetch document content:', error);
+      content = 'Failed to load document content';
+    }
     
     const newTab: DocumentTabData = {
       id: document.document_file_name || document.id,
       name: document.document_title || document.name,
       type: 'document',
       title: document.document_title || document.name,
-      content: '',
+      content: content,
       highlights: highlights,
       query: query
     };
@@ -79,17 +90,27 @@ export const useDocumentTabs = () => {
     });
   };
 
-  const handleFileClick = (file: any) => {
+  const handleFileClick = async (file: any) => {
     if (file.type === 'document' || file.type === 'file') {
+      // Fetch the actual document content
+      let content = '';
+      try {
+        content = await getDocumentContent(file.id);
+      } catch (error) {
+        console.error('Failed to fetch document content:', error);
+        content = 'Failed to load document content';
+      }
+
       const newTab: DocumentTabData = { 
         id: file.id, 
         name: file.name, 
         type: 'document',
         title: file.name,
-        content: '',
+        content: content,
         highlights: [],
         query: ''
       };
+      
       setOpenTabs(prev => {
         const existingIndex = prev.findIndex(tab => tab.id === file.id);
         if (existingIndex >= 0) {
