@@ -14,7 +14,7 @@ const DocumentTabManager: React.FC = () => {
   };
 
   const getTabStyle = (isActive: boolean, isOverview: boolean = false) => {
-    const baseStyle = "flex items-center gap-2 px-4 py-3 border-r border-gray-200 cursor-pointer transition-all duration-200 min-w-0 max-w-64";
+    const baseStyle = "flex items-center gap-2 px-4 py-3 border-r border-gray-200 cursor-pointer transition-all duration-200 min-w-0 max-w-64 group";
     
     if (isActive) {
       return `${baseStyle} bg-white text-gray-900 border-b-2 border-blue-500 font-medium shadow-sm`;
