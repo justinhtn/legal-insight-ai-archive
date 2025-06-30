@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, Search, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface DocumentHighlight {
   text: string;
@@ -27,23 +27,6 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
 }) => {
   const [highlightedContent, setHighlightedContent] = useState('');
   const [currentHighlight, setCurrentHighlight] = useState(0);
-
-  // Debug and handle close function
-  const handleClose = useCallback(() => {
-    console.log('Close button clicked!');
-    console.log('onClose function:', onClose);
-    console.log('onClose type:', typeof onClose);
-    
-    if (onClose && typeof onClose === 'function') {
-      try {
-        onClose();
-      } catch (error) {
-        console.error('Error calling onClose:', error);
-      }
-    } else {
-      console.error('onClose is not a valid function!', onClose);
-    }
-  }, [onClose]);
 
   useEffect(() => {
     if (highlights.length > 0) {
@@ -96,9 +79,7 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        handleClose();
-      } else if (event.key === 'ArrowUp' && event.ctrlKey) {
+      if (event.key === 'ArrowUp' && event.ctrlKey) {
         event.preventDefault();
         prevHighlight();
       } else if (event.key === 'ArrowDown' && event.ctrlKey) {
@@ -109,7 +90,7 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleClose, nextHighlight, prevHighlight]);
+  }, [nextHighlight, prevHighlight]);
 
   useEffect(() => {
     // Auto-scroll to first highlight when component mounts
@@ -133,16 +114,7 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
               </p>
             )}
           </div>
-          {/* Fixed close button with proper event handling */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClose}
-            className="ml-4 hover:bg-gray-200"
-            type="button"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+
         </div>
         
         {/* Highlight Navigation */}
