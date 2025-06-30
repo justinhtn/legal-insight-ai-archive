@@ -91,26 +91,38 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     }
   };
 
-  // Filter sources to only show documents actually referenced by AI
-  const filterRelevantSources = (sources: any[], aiResponse: string) => {
+  // Improved filtering to only show documents actually referenced by AI
+  const filterRelevantSources = (sources: any[], aiResponse: string, userQuery: string) => {
     if (!sources || sources.length === 0) return sources;
     
+    const queryLower = userQuery.toLowerCase();
+    const aiLower = aiResponse.toLowerCase();
+    
     return sources.filter(source => {
-      const fileName = source.document_file_name || source.document_title;
-      const fileNameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+      // First check if any excerpts are actually relevant to the query
+      const relevantExcerpts = source.excerpts?.filter((excerpt: any) => {
+        const excerptLower = excerpt.text.toLowerCase();
+        
+        // For age queries, only show excerpts that contain age information
+        if (queryLower.includes('age') || queryLower.includes('minor')) {
+          return excerptLower.includes('age') || 
+                 excerptLower.includes('year') || 
+                 excerptLower.includes('old') || 
+                 /\b\d+\b/.test(excerpt.text); // Contains numbers
+        }
+        
+        // For other queries, check if AI response references this excerpt
+        const excerptWords = excerptLower.split(/\s+/).filter(word => word.length > 3);
+        return excerptWords.some(word => aiLower.includes(word));
+      });
       
-      // Check if AI response contains reference to this specific document
-      const aiLower = aiResponse.toLowerCase();
-      const fileNameLower = fileName.toLowerCase();
-      const fileNameNoExtLower = fileNameWithoutExt.toLowerCase();
+      // Only include the source if it has relevant excerpts
+      if (relevantExcerpts && relevantExcerpts.length > 0) {
+        source.excerpts = relevantExcerpts.slice(0, 2); // Limit to top 2 most relevant
+        return true;
+      }
       
-      // Look for exact mentions of the document name
-      return aiLower.includes(fileNameLower) || 
-             aiLower.includes(fileNameNoExtLower) ||
-             // Also check if any excerpts from this document are directly quoted
-             source.excerpts?.some((excerpt: any) => 
-               aiLower.includes(excerpt.text.toLowerCase().substring(0, 50))
-             );
+      return false;
     });
   };
 
@@ -188,28 +200,14 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
 
   const formatDocumentReference = (source: any) => {
     const fileName = source.document_file_name || source.document_title;
-    let reference = `${fileName}`;
-    
-    if (source.excerpts && source.excerpts.length > 0) {
-      const excerpt = source.excerpts[0];
-      if (excerpt.section) {
-        reference += ` | ${excerpt.section}`;
-      }
-      if (excerpt.lines) {
-        reference += ` | Lines: ${excerpt.lines}`;
-      } else if (excerpt.page) {
-        reference += ` | Page: ${excerpt.page}`;
-      }
-    }
-    
-    return reference;
+    return fileName; // Simplified - just show filename
   };
 
   const formatAIResponse = (content: string, sources: any[], documentCount: number, query: string) => {
     const conciseContent = getConciseResponse(content);
     
     // Filter sources to only show documents actually referenced by AI
-    const relevantSources = filterRelevantSources(sources, content);
+    const relevantSources = filterRelevantSources(sources, content, query);
     
     return (
       <div className="space-y-4">
@@ -218,58 +216,36 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
           <span>AI Analysis</span>
         </div>
         
-        {documentCount > 0 && (
-          <div className="text-xs text-gray-500 mb-3">
-            Based on {documentCount} document section{documentCount > 1 ? 's' : ''}
-          </div>
-        )}
-
         <div className="text-sm leading-relaxed">
           {conciseContent}
         </div>
 
         {relevantSources && relevantSources.length > 0 && (
-          <div className="mt-6 space-y-3">
-            <div className="flex items-center gap-2 font-semibold text-gray-700">
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
               <span>📚</span>
-              <span>Key Sources ({relevantSources.length})</span>
+              <span>Key Sources</span>
             </div>
 
             {relevantSources.map((source, sourceIndex) => (
-              <div key={sourceIndex} className="border-l-4 border-gray-200 pl-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-gray-500" />
-                  <button
-                    onClick={() => handleViewDocument(source, query, content)}
-                    className="font-medium text-blue-600 hover:text-blue-800 underline text-left text-sm"
-                  >
-                    {formatDocumentReference(source)}
-                  </button>
-                </div>
-                
-                {source.excerpts && source.excerpts.length > 0 && (
-                  <div className="space-y-1 text-xs ml-6">
-                    {source.excerpts
-                      .filter((excerpt: any) => excerpt.queryRelevance === undefined || excerpt.queryRelevance > 0.1)
-                      .slice(0, 3)
-                      .map((excerpt: any, excerptIndex: number) => (
-                      <div key={excerptIndex} className="text-gray-700 bg-yellow-50 p-2 rounded border-l-2 border-yellow-300">
-                        <div className="font-medium text-xs text-gray-600 mb-1">
-                          {excerpt.page && `Page ${excerpt.page}`}
-                          {excerpt.lines && ` • Lines ${excerpt.lines}`}
-                          {excerpt.section && ` • ${excerpt.section}`}
-                          {excerpt.queryRelevance && ` • Match: ${Math.round(excerpt.queryRelevance * 100)}%`}
-                        </div>
-                        <button
-                          onClick={() => handleViewDocument(source, query, content)}
-                          className="text-blue-600 hover:text-blue-800 hover:underline text-left"
-                        >
-                          "{excerpt.text.length > 120 ? excerpt.text.substring(0, 120) + '...' : excerpt.text}"
-                        </button>
+              <div key={sourceIndex} className="space-y-1">
+                {source.excerpts && source.excerpts.map((excerpt: any, excerptIndex: number) => (
+                  <div key={excerptIndex} className="bg-yellow-50 border-l-3 border-yellow-300 p-2 rounded-r">
+                    <button
+                      onClick={() => handleViewDocument(source, query, content)}
+                      className="w-full text-left"
+                    >
+                      <div className="text-xs text-gray-600 mb-1">
+                        <FileText className="h-3 w-3 inline mr-1" />
+                        {formatDocumentReference(source)}
+                        {excerpt.page && ` • Page ${excerpt.page}`}
                       </div>
-                    ))}
+                      <div className="text-sm text-blue-600 hover:text-blue-800">
+                        "{excerpt.text.length > 150 ? excerpt.text.substring(0, 150) + '...' : excerpt.text}"
+                      </div>
+                    </button>
                   </div>
-                )}
+                ))}
               </div>
             ))}
           </div>
@@ -304,17 +280,19 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       const response = await searchDocuments(currentQuery, client.id, client);
       console.log('Search response:', response);
       
-      const sources = response.consolidated_documents?.slice(0, 3).map(doc => {
+      // Keep sources in original order without sorting
+      const sources = response.consolidated_documents?.slice(0, 3).map((doc, index) => {
         return {
           document_title: doc.document_title,
           document_file_name: doc.document_file_name,
           document_id: doc.document_id,
-          excerpts: doc.excerpts.map(excerpt => ({
+          excerpts: doc.excerpts.map((excerpt, excerptIndex) => ({
             page: excerpt.page,
             text: excerpt.text,
             lines: excerpt.lines,
             section: excerpt.section,
             queryRelevance: excerpt.queryRelevance,
+            originalIndex: excerptIndex, // Keep track of original order
           })),
         };
       });

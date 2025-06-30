@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -34,19 +33,8 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
       console.log('Processing highlights for document:', highlights);
       let content = documentContent;
       
-      // Sort highlights by relevance (longer text first, then by page/line)
-      const sortedHighlights = [...highlights].sort((a, b) => {
-        if (a.text.length !== b.text.length) {
-          return b.text.length - a.text.length;
-        }
-        if (a.page && b.page) {
-          return a.page - b.page;
-        }
-        return 0;
-      });
-      
-      // Apply highlights in order
-      sortedHighlights.forEach((highlight, index) => {
+      // DON'T sort highlights - keep them in original order to maintain index consistency
+      highlights.forEach((highlight, index) => {
         const escapedText = highlight.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(`(${escapedText})`, 'gi');
         content = content.replace(regex, `<span id="highlight-${index}" class="bg-yellow-200 px-1 rounded font-medium">\$1</span>`);
@@ -159,11 +147,11 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
         </ScrollArea>
       </div>
 
-      {/* Highlights Sidebar - if there are highlights */}
+      {/* Compact Highlights Sidebar */}
       {highlights.length > 0 && (
-        <div className="border-t bg-gray-50 p-4">
-          <h3 className="font-medium text-gray-900 mb-3">Highlights ({highlights.length})</h3>
-          <div className="space-y-2 max-h-32 overflow-y-auto">
+        <div className="border-t bg-gray-50 p-3">
+          <h3 className="font-medium text-gray-900 mb-2 text-sm">Highlights ({highlights.length})</h3>
+          <div className="space-y-1 max-h-24 overflow-y-auto">
             {highlights.map((highlight, index) => (
               <button
                 key={index}
@@ -177,10 +165,9 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
                 <div className="font-medium text-gray-700 mb-1">
                   {highlight.page && `Page ${highlight.page}`}
                   {highlight.lines && ` • Lines ${highlight.lines}`}
-                  {highlight.section && ` • ${highlight.section}`}
                 </div>
-                <div className="text-gray-600 line-clamp-2">
-                  "{highlight.text.substring(0, 100)}{highlight.text.length > 100 ? '...' : ''}"
+                <div className="text-gray-600 line-clamp-1">
+                  "{highlight.text.substring(0, 80)}{highlight.text.length > 80 ? '...' : ''}"
                 </div>
               </button>
             ))}
