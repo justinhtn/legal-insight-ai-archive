@@ -142,7 +142,7 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
             className="flex items-center gap-2"
           >
             <MessageCircle className="h-4 w-4" />
-            {isChatOpen ? 'Chat Open' : 'Open Chat'}
+            {isChatOpen ? 'Close Chat' : 'Open Chat'}
           </Button>
         </div>
         <ClientInfoPanel
@@ -166,6 +166,7 @@ const ClientContentPanel: React.FC<ClientContentPanelProps> = ({
             onFileClick={onOpenDocument}
             onFolderClick={handleFolderClick}
             onNavigateToRoot={handleNavigateToRoot}
+            allFolders={folders}
           />
         </div>
       </div>

@@ -1,4 +1,6 @@
+
 import { supabase } from '@/integrations/supabase/client';
+import { Client, getFolders } from './clientService';
 
 export interface SearchResult {
   document_id: string;
@@ -25,6 +27,7 @@ export interface ConsolidatedDocument {
     page?: number;
     text: string;
     lines?: string;
+    section?: string;
   }>;
   total_pages?: number;
 }
@@ -40,12 +43,16 @@ function extractKeyPhrases(content: string, pageNumber?: number, lineStart?: num
   // Split content into sentences and take the most relevant ones
   const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 20);
   
+  // Extract section information if available
+  const sectionMatch = content.match(/(?:Section|SECTION)\s*(\d+(?:\.\d+)?)\s*:?\s*([^.\n]+)/i);
+  const section = sectionMatch ? `Section ${sectionMatch[1]}: ${sectionMatch[2].trim()}` : undefined;
+  
   // For now, take the first 2 sentences as key phrases
-  // In a real implementation, this could use NLP to find the most relevant sentences
   const keyPhrases = sentences.slice(0, 2).map(sentence => ({
     page: pageNumber,
     text: sentence.trim(),
-    lines: lineStart && lineEnd ? `Lines ${lineStart}-${lineEnd}` : undefined
+    lines: lineStart && lineEnd ? `${lineStart}-${lineEnd}` : undefined,
+    section: section
   }));
 
   return keyPhrases;
@@ -65,7 +72,7 @@ function consolidateSearchResults(chunks: SearchResult[]): ConsolidatedDocument[
     document_file_name: string;
     client: string;
     matter: string;
-    excerpts: Array<{ page?: number; text: string; lines?: string }>;
+    excerpts: Array<{ page?: number; text: string; lines?: string; section?: string }>;
     relevance_scores: number[];
   }>();
 
@@ -110,11 +117,77 @@ function consolidateSearchResults(chunks: SearchResult[]): ConsolidatedDocument[
   }));
 }
 
-export const searchDocuments = async (query: string, clientId?: string): Promise<SearchResponse> => {
+export const generateClientContext = async (client: Client): Promise<string> => {
+  try {
+    // Get real-time folder structure
+    const folders = await getFolders(client.id);
+    
+    const folderContext = folders.length > 0 
+      ? folders.map(f => `- ${f.name}: Legal documents and files`).join('\n')
+      : '- No folders created yet';
+    
+    return `
+Client Information:
+- Name: ${client.name}
+- Case Type: ${client.matter_type || 'Not specified'}
+- Case Number: ${client.case_number || 'Not assigned'}
+- Email: ${client.email || 'Not provided'}
+
+Available Folders:
+${folderContext}
+
+Total Folders: ${folders.length}
+`;
+  } catch (error) {
+    console.error('Error generating client context:', error);
+    return `
+Client Information:
+- Name: ${client.name}
+- Case Type: ${client.matter_type || 'Not specified'}
+- Case Number: ${client.case_number || 'Not assigned'}
+
+Folders: Unable to load folder structure
+`;
+  }
+};
+
+export const searchDocuments = async (query: string, clientId?: string, client?: Client): Promise<SearchResponse> => {
+  // Handle folder structure queries directly
+  if (query.toLowerCase().includes('folder') && client) {
+    try {
+      const folders = await getFolders(client.id);
+      const folderList = folders.length > 0 
+        ? folders.map(f => `• ${f.name}`).join('\n')
+        : 'No folders have been created yet.';
+      
+      const response = `${client.name} has ${folders.length} folder${folders.length !== 1 ? 's' : ''}:
+
+${folderList}
+
+You can organize documents by uploading them to specific folders.`;
+
+      return {
+        results: [],
+        consolidated_documents: [],
+        ai_response: response,
+        message: `Folder structure for ${client.name}`
+      };
+    } catch (error) {
+      console.error('Error fetching folders:', error);
+    }
+  }
+
+  // Generate client context for document search
+  let clientContext = '';
+  if (client) {
+    clientContext = await generateClientContext(client);
+  }
+
   const { data, error } = await supabase.functions.invoke('search-documents', {
     body: { 
       query,
-      client_id: clientId || null
+      client_id: clientId || null,
+      client_context: clientContext
     }
   });
 

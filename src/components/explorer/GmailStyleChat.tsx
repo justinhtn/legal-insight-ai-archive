@@ -22,7 +22,9 @@ interface ChatMessage {
       page?: number;
       text: string;
       lines?: string;
+      section?: string;
     }>;
+    document_id?: string;
   }>;
   documentCount?: number;
   query?: string;
@@ -73,26 +75,35 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       text: excerpt.text,
       page: excerpt.page,
       lines: excerpt.lines,
+      section: excerpt.section,
     })) || [];
 
     if (onOpenDocumentWithHighlights) {
-      onOpenDocumentWithHighlights(source, highlights, query);
+      // Find the document by ID or title
+      const documentData = {
+        id: source.document_id,
+        title: source.document_title,
+        file_name: source.document_file_name,
+      };
+      onOpenDocumentWithHighlights(documentData, highlights, query);
     }
   };
 
   const getConciseResponse = (fullResponse: string) => {
-    // Remove boilerplate phrases
+    // Remove boilerplate phrases more aggressively
     let response = fullResponse
-      .replace(/If you require further details.*?please let me know\./gi, '')
-      .replace(/Review the highlighted sources.*?specific aspect\?/gi, '')
-      .replace(/Would you like me to elaborate.*?\?/gi, '')
+      .replace(/If you (?:require|need) further details.*?please let me know\.?/gi, '')
+      .replace(/Review the highlighted sources.*?specific aspect\??/gi, '')
+      .replace(/Would you like me to elaborate.*?\??/gi, '')
       .replace(/This information is explicitly stated in.*?\./gi, '')
       .replace(/as referenced in.*?,/gi, '')
       .replace(/\(.*?Chunk \d+.*?\)/gi, '')
       .replace(/\(Document \d+.*?\)/gi, '')
+      .replace(/Based on the provided documents?,?/gi, '')
+      .replace(/According to the document(?:s|ation)?,?/gi, '')
       .trim();
 
-    // Split into sentences and take first 1-2 sentences for simple questions
+    // Split into sentences and clean up
     const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 10);
     
     // For very short answers (like numbers, dates), return as is
@@ -100,8 +111,28 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       return response;
     }
     
-    // For longer responses, limit to 2 sentences max
-    return sentences.slice(0, 2).join('. ').trim() + (sentences.length > 2 ? '.' : '');
+    // For longer responses, limit to 2-3 sentences max for conciseness
+    const maxSentences = response.includes('•') || response.includes('-') ? 5 : 2;
+    return sentences.slice(0, maxSentences).join('. ').trim() + (sentences.length > maxSentences ? '.' : '');
+  };
+
+  const formatDocumentReference = (source: any) => {
+    const fileName = source.document_file_name || source.document_title;
+    let reference = `Document: ${fileName}`;
+    
+    if (source.excerpts && source.excerpts.length > 0) {
+      const excerpt = source.excerpts[0];
+      if (excerpt.section) {
+        reference += ` | Section: ${excerpt.section}`;
+      }
+      if (excerpt.lines) {
+        reference += ` | Lines: ${excerpt.lines}`;
+      } else if (excerpt.page) {
+        reference += ` | Page: ${excerpt.page}`;
+      }
+    }
+    
+    return reference;
   };
 
   const formatAIResponse = (content: string, sources: any[], documentCount: number, query: string) => {
@@ -137,9 +168,9 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
                   <FileText className="h-4 w-4 text-gray-500" />
                   <button
                     onClick={() => handleViewDocument(source, query)}
-                    className="font-medium text-blue-600 hover:text-blue-800 underline text-left"
+                    className="font-medium text-blue-600 hover:text-blue-800 underline text-left text-sm"
                   >
-                    {source.document_title}
+                    {formatDocumentReference(source)}
                   </button>
                 </div>
                 
@@ -181,16 +212,18 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     setIsLoading(true);
 
     try {
-      const response = await searchDocuments(currentQuery, client.id);
+      const response = await searchDocuments(currentQuery, client.id, client);
       
       const sources = response.consolidated_documents?.slice(0, 3).map(doc => {
         return {
           document_title: doc.document_title,
           document_file_name: doc.document_file_name,
+          document_id: doc.document_id,
           excerpts: doc.excerpts.map(excerpt => ({
             page: excerpt.page,
             text: excerpt.text,
             lines: excerpt.lines,
+            section: excerpt.section,
           })),
         };
       });
@@ -225,6 +258,11 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     }
   };
 
+  // Filter out empty messages to prevent UI issues
+  const filteredMessages = messages.filter(msg => 
+    msg.content && msg.content.trim() !== ''
+  );
+
   if (!client) {
     return null;
   }
@@ -251,14 +289,17 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       <div className="flex-1 overflow-y-auto">
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">
-            {messages.length === 0 && (
+            {filteredMessages.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 <p className="font-medium">Start a conversation about {client.name}'s case</p>
                 <p className="text-sm">Ask questions about documents, deadlines, or case details</p>
+                <p className="text-xs mt-2 text-gray-400">
+                  Try: "What folders do I have?" or "What claims is being disputed?"
+                </p>
               </div>
             )}
             
-            {messages.map((message) => (
+            {filteredMessages.map((message) => (
               <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <Card className={`max-w-[90%] p-4 ${
                   message.role === 'user' 
@@ -283,7 +324,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
                 <Card className="max-w-[80%] p-3 bg-gray-100">
                   <div className="flex items-center text-sm text-gray-600">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    AI is analyzing documents...
+                    AI is analyzing {client.name}'s documents...
                   </div>
                 </Card>
               </div>
@@ -300,7 +341,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={`Ask about ${client.name}'s documents...`}
+            placeholder={`Ask about ${client.name}'s documents or folders...`}
             disabled={isLoading}
             className="flex-1"
           />

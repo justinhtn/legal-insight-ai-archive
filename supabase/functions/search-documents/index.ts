@@ -24,7 +24,7 @@ serve(async (req) => {
       throw new Error('User not authenticated')
     }
 
-    const { query, client_id } = await req.json()
+    const { query, client_id, client_context } = await req.json()
 
     if (!query || query.trim().length === 0) {
       return new Response(
@@ -127,7 +127,7 @@ serve(async (req) => {
         }
       })
       .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 15) // Reduce to top 15 for better performance
+      .slice(0, 12) // Reduce to top 12 for better performance
 
     console.log(`Found ${results.length} document chunks for RAG analysis`)
 
@@ -142,36 +142,28 @@ serve(async (req) => {
       return `Document ${index + 1}:
 Title: ${result.documents.title}
 File: ${result.documents.file_name}
-${pageInfo} | ${lineInfo}
+Location: ${pageInfo} | ${lineInfo}
 Content: "${result.content}"
 ---`;
     }).join('\n\n');
 
-    // Determine model based on query complexity
+    // Determine model based on query complexity and type
     const isSimpleQuery = query.length < 50 && (
       query.toLowerCase().includes('what is') ||
       query.toLowerCase().includes('when') ||
       query.toLowerCase().includes('who') ||
       query.toLowerCase().includes('how much') ||
-      query.toLowerCase().includes('number')
+      query.toLowerCase().includes('number') ||
+      query.toLowerCase().includes('client number') ||
+      query.toLowerCase().includes('case number')
     );
 
     const model = isSimpleQuery ? 'gpt-3.5-turbo' : 'gpt-4o-mini';
 
-    // Generate enhanced RAG response using OpenAI with improved system prompt
-    console.log('Generating RAG response with OpenAI...')
-    const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          {
-            role: 'system',
-            content: `You are a senior attorney's AI assistant. Using the provided document excerpts, provide direct, concise answers.
+    // Enhanced system prompt with client context
+    const systemPrompt = `You are a legal document assistant helping attorneys manage client cases. 
+
+${client_context ? `Current Client Context:\n${client_context}\n` : ''}
 
 CRITICAL INSTRUCTIONS:
 1. SCAN for the EXACT answer in the documents
@@ -181,6 +173,7 @@ CRITICAL INSTRUCTIONS:
 5. Quote directly from documents when possible
 6. For list questions, format as bullet points
 7. Be precise and factual, no interpretation unless necessary
+8. When referencing documents, use format: Document: [filename] | Section: [section] | Lines: [range]
 
 Examples:
 Q: "What is the client number?"
@@ -195,7 +188,22 @@ A: "Mr. Houghton disputes these claims:
 Q: "When was the contract signed?"
 A: "January 15, 2025"
 
-Document excerpts are provided below with their titles and page information.`
+Document excerpts are provided below with their titles and location information.`;
+
+    // Generate enhanced RAG response using OpenAI with improved system prompt
+    console.log(`Generating RAG response with ${model}...`)
+    const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
           },
           {
             role: 'user',
@@ -208,7 +216,7 @@ Provide a direct, concise answer based on these documents.`
           }
         ],
         temperature: 0.1,
-        max_tokens: 500 // Limit response length
+        max_tokens: 400 // Limit response length for conciseness
       }),
     })
 
@@ -224,7 +232,7 @@ Provide a direct, concise answer based on these documents.`
     // Return enhanced response with detailed source documents
     const sourceDocuments = results
       .filter(result => result.similarity > 0.2)
-      .slice(0, 8) // Reduce to top 8 sources
+      .slice(0, 6) // Reduce to top 6 sources
       .map(result => {
         const metadata = result.metadata || {};
         return {
