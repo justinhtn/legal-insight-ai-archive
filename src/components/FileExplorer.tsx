@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getClients, getFolders, Client, Folder } from '@/services/clientService';
 import { getDocuments } from '@/services/documentService';
 import ClientSidebar from './explorer/ClientSidebar';
 import FilePanel from './explorer/FilePanel';
-import ClientContentPanel from './explorer/ClientContentPanel';
 import TabbedDocumentViewer from './explorer/TabbedDocumentViewer';
 import FloatingChatPanel from './explorer/FloatingChatPanel';
 import DocumentUploadModal from './DocumentUploadModal';
 import { toast } from 'sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Files, MessageSquare, Settings } from 'lucide-react';
+import { MessageSquare, X, FileText, Lightbulb } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Document {
   id: string;
@@ -32,7 +32,6 @@ interface DocumentTabData {
 const FileExplorer: React.FC = () => {
   const [selectedClientId, setSelectedClientId] = useState<string>();
   const [selectedFolderId, setSelectedFolderId] = useState<string>();
-  const [activeTab, setActiveTab] = useState<'files' | 'chat' | 'settings'>('files');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [openTabs, setOpenTabs] = useState<DocumentTabData[]>([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -65,7 +64,6 @@ const FileExplorer: React.FC = () => {
   const handleClientSelect = (clientId: string) => {
     setSelectedClientId(clientId);
     setSelectedFolderId(undefined);
-    setActiveTab('files');
   };
 
   const handleFolderClick = (folderId: string) => {
@@ -90,10 +88,11 @@ const FileExplorer: React.FC = () => {
       setOpenTabs(prev => {
         const existingIndex = prev.findIndex(tab => tab.id === file.id);
         if (existingIndex >= 0) {
+          setActiveTabId(file.id);
+          setShowOverview(false);
           return prev;
         }
         const newTabs = [...prev, newTab];
-        // Set as active tab and hide overview
         setActiveTabId(file.id);
         setShowOverview(false);
         return newTabs;
@@ -128,10 +127,13 @@ const FileExplorer: React.FC = () => {
   const handleCloseTab = (tabId: string) => {
     setOpenTabs(prev => {
       const newTabs = prev.filter(tab => tab.id !== tabId);
-      // If we're closing the active tab, reset to overview
       if (activeTabId === tabId) {
-        setActiveTabId(null);
-        setShowOverview(true);
+        if (newTabs.length > 0) {
+          setActiveTabId(newTabs[newTabs.length - 1].id);
+        } else {
+          setActiveTabId(null);
+          setShowOverview(true);
+        }
       }
       return newTabs;
     });
@@ -157,7 +159,6 @@ const FileExplorer: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-white">
-      {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Client Sidebar */}
         <div className="w-64 flex-shrink-0 bg-gray-50 border-r border-gray-200">
@@ -174,98 +175,82 @@ const FileExplorer: React.FC = () => {
         <div className="flex-1 flex flex-col overflow-hidden bg-white">
           {selectedClientId ? (
             <>
-              {/* Browser-like Tabs */}
-              <div className="bg-white border-b border-gray-200">
-                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-                  <TabsList className="h-12 bg-white rounded-none w-full justify-start border-0 p-0">
-                    <TabsTrigger 
-                      value="files" 
-                      className="flex items-center gap-2 px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 hover:bg-gray-50 transition-colors"
-                    >
-                      <Files className="h-4 w-4" />
-                      Files
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="chat" 
-                      className="flex items-center gap-2 px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 hover:bg-gray-50 transition-colors"
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                      Chat
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="settings" 
-                      className="flex items-center gap-2 px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 hover:bg-gray-50 transition-colors"
-                    >
-                      <Settings className="h-4 w-4" />
-                      Settings
-                    </TabsTrigger>
-                  </TabsList>
+              {/* Document Tabs Bar */}
+              {openTabs.length > 0 && (
+                <div className="document-tabs">
+                  {/* Overview Tab */}
+                  <div
+                    onClick={handleShowOverview}
+                    className={`document-tab ${showOverview ? 'active overview-tab' : ''}`}
+                  >
+                    <span className="tab-title">Overview</span>
+                  </div>
 
-                  <TabsContent value="files" className="flex-1 overflow-hidden mt-0">
-                    <div className="flex h-full">
-                      {/* File Panel */}
-                      <div className="flex-1">
-                        <FilePanel
-                          files={fileItems}
-                          folders={folders}
-                          selectedFolderId={selectedFolderId}
-                          folderName={selectedFolder?.name}
-                          onUpload={handleUpload}
-                          isLoading={foldersLoading || documentsLoading}
-                          onRefresh={handleRefresh}
-                          onFileClick={handleFileClick}
-                          onFolderClick={handleFolderClick}
-                          onNavigateToRoot={handleNavigateToRoot}
-                          allFolders={folders}
-                        />
-                      </div>
-
-                      {/* Document Viewer */}
-                      {openTabs.length > 0 && (
-                        <div className="w-1/2 border-l border-gray-200 bg-white">
-                          <TabbedDocumentViewer
-                            tabs={openTabs}
-                            activeTabId={activeTabId}
-                            onTabChange={handleTabChange}
-                            onTabClose={handleCloseTab}
-                            onShowOverview={handleShowOverview}
-                            showOverview={showOverview}
-                          />
-                        </div>
+                  {/* Document Tabs */}
+                  {openTabs.map((tab) => (
+                    <div
+                      key={tab.id}
+                      onClick={() => handleTabChange(tab.id)}
+                      className={`document-tab ${activeTabId === tab.id ? 'active' : ''}`}
+                    >
+                      <FileText className="h-4 w-4 flex-shrink-0" />
+                      <span className="tab-title">{tab.title}</span>
+                      {tab.highlights.length > 0 && (
+                        <Lightbulb className="h-3 w-3 text-yellow-500 flex-shrink-0" />
                       )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCloseTab(tab.id);
+                        }}
+                        className="close-button"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
-                  </TabsContent>
+                  ))}
+                </div>
+              )}
 
-                  <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">
-                    <ClientContentPanel
-                      client={selectedClient}
-                      onFolderSelect={() => {}}
-                      onNewFolder={() => {}}
-                      onUpload={handleUpload}
-                      onClientUpdated={() => {}}
-                      isChatOpen={isChatOpen}
-                      onToggleChat={() => setIsChatOpen(!isChatOpen)}
+              {/* Content Area */}
+              <div className="flex-1 flex overflow-hidden">
+                {/* File Panel */}
+                <div className="flex-1">
+                  <FilePanel
+                    files={fileItems}
+                    folders={folders}
+                    selectedFolderId={selectedFolderId}
+                    folderName={selectedFolder?.name}
+                    onUpload={handleUpload}
+                    isLoading={foldersLoading || documentsLoading}
+                    onRefresh={handleRefresh}
+                    onFileClick={handleFileClick}
+                    onFolderClick={handleFolderClick}
+                    onNavigateToRoot={handleNavigateToRoot}
+                    allFolders={folders}
+                  />
+                </div>
+
+                {/* Document Viewer */}
+                {openTabs.length > 0 && !showOverview && activeTabId && (
+                  <div className="w-1/2 border-l border-gray-200 bg-white">
+                    <TabbedDocumentViewer
+                      tabs={openTabs}
+                      activeTabId={activeTabId}
+                      onTabChange={handleTabChange}
+                      onTabClose={handleCloseTab}
+                      onShowOverview={handleShowOverview}
+                      showOverview={showOverview}
+                      showTabsOnly={true}
                     />
-                  </TabsContent>
-
-                  <TabsContent value="settings" className="flex-1 overflow-hidden mt-0">
-                    <div className="flex items-center justify-center h-full bg-white">
-                      <div className="text-center">
-                        <Settings className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Client Settings</h3>
-                        <p className="text-gray-500 text-sm">
-                          Client settings panel coming soon
-                        </p>
-                      </div>
-                    </div>
-                  </TabsContent>
-                </Tabs>
+                  </div>
+                )}
               </div>
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center bg-white">
               <div className="text-center">
-                <Files className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
                 <h2 className="text-2xl font-semibold text-gray-900 mb-2">
                   Welcome to Legal Document Manager
                 </h2>
@@ -276,6 +261,57 @@ const FileExplorer: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Chat Panel Toggle */}
+        {selectedClientId && (
+          <div className="flex-shrink-0">
+            <Button
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              variant="outline"
+              size="sm"
+              className="m-2"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Chat
+            </Button>
+          </div>
+        )}
+
+        {/* Chat Panel */}
+        {selectedClientId && isChatOpen && (
+          <div className="w-80 border-l border-gray-200 bg-white">
+            <FloatingChatPanel
+              isOpen={isChatOpen}
+              onClose={() => setIsChatOpen(false)}
+              selectedClientId={selectedClientId}
+              onDocumentOpen={(doc) => {
+                const newTab: DocumentTabData = {
+                  id: doc.id,
+                  name: doc.name,
+                  type: 'document',
+                  title: doc.title,
+                  content: doc.content,
+                  highlights: doc.highlights,
+                  query: doc.query
+                };
+                setOpenTabs(prev => {
+                  const existingIndex = prev.findIndex(tab => tab.id === doc.id);
+                  if (existingIndex >= 0) {
+                    const updated = [...prev];
+                    updated[existingIndex] = newTab;
+                    setActiveTabId(doc.id);
+                    setShowOverview(false);
+                    return updated;
+                  }
+                  const newTabs = [...prev, newTab];
+                  setActiveTabId(doc.id);
+                  setShowOverview(false);
+                  return newTabs;
+                });
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Upload Modal */}
