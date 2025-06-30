@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Client, getClients, createClient, createFolder } from '@/services/clientService';
 import { useToast } from '@/hooks/use-toast';
@@ -10,6 +9,19 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 import ClientSidebar from './explorer/ClientSidebar';
 import ClientContentPanel from './explorer/ClientContentPanel';
 import ClientChatPanel from './explorer/ClientChatPanel';
+import TabbedDocumentViewer from './explorer/TabbedDocumentViewer';
+
+interface DocumentTabData {
+  id: string;
+  title: string;
+  content: string;
+  highlights: Array<{
+    text: string;
+    page?: number;
+    lines?: string;
+  }>;
+  query: string;
+}
 
 interface FileExplorerProps {
   onUpload: () => void;
@@ -31,6 +43,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     case_number: '',
     matter_type: ''
   });
+
+  // Document tab management
+  const [documentTabs, setDocumentTabs] = useState<DocumentTabData[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [showOverview, setShowOverview] = useState(true);
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,12 +76,55 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     const client = clients.find(c => c.id === clientId);
     if (client) {
       setSelectedClient(client);
-      setSelectedFolderId(null); // Reset folder selection when switching clients
+      setSelectedFolderId(null);
     }
   };
 
   const handleFolderSelect = (folderId: string | null) => {
     setSelectedFolderId(folderId);
+  };
+
+  const handleOpenDocumentWithHighlights = (document: any, highlights: any[], query: string) => {
+    // In a real implementation, you'd fetch the full document content
+    const documentContent = document.excerpts?.map((excerpt: any) => excerpt.text).join('\n\n') || 'Document content would be loaded here...';
+    
+    const tabId = `${document.document_file_name}-${Date.now()}`;
+    
+    const newTab: DocumentTabData = {
+      id: tabId,
+      title: document.document_title,
+      content: documentContent,
+      highlights: highlights,
+      query: query
+    };
+
+    setDocumentTabs(prev => [...prev, newTab]);
+    setActiveTabId(tabId);
+    setShowOverview(false);
+  };
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTabId(tabId);
+    setShowOverview(false);
+  };
+
+  const handleTabClose = (tabId: string) => {
+    setDocumentTabs(prev => prev.filter(tab => tab.id !== tabId));
+    
+    if (activeTabId === tabId) {
+      const remainingTabs = documentTabs.filter(tab => tab.id !== tabId);
+      if (remainingTabs.length > 0) {
+        setActiveTabId(remainingTabs[remainingTabs.length - 1].id);
+      } else {
+        setShowOverview(true);
+        setActiveTabId(null);
+      }
+    }
+  };
+
+  const handleShowOverview = () => {
+    setShowOverview(true);
+    setActiveTabId(null);
   };
 
   const handleCreateFolder = async () => {
@@ -164,17 +225,28 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
 
         <ResizableHandle withHandle />
 
-        {/* Panel 2: Client Content */}
+        {/* Panel 2: Client Content or Tabbed Documents */}
         <ResizablePanel defaultSize={45} minSize={30}>
           {selectedClient ? (
-            <ClientContentPanel
-              client={selectedClient}
-              selectedFolderId={selectedFolderId}
-              onFolderSelect={handleFolderSelect}
-              onNewFolder={() => setShowNewFolderDialog(true)}
-              onUpload={handleUploadWithContext}
-              onClientUpdated={handleClientUpdated}
-            />
+            showOverview ? (
+              <ClientContentPanel
+                client={selectedClient}
+                selectedFolderId={selectedFolderId}
+                onFolderSelect={handleFolderSelect}
+                onNewFolder={() => setShowNewFolderDialog(true)}
+                onUpload={handleUploadWithContext}
+                onClientUpdated={handleClientUpdated}
+              />
+            ) : (
+              <TabbedDocumentViewer
+                tabs={documentTabs}
+                activeTabId={activeTabId}
+                onTabChange={handleTabChange}
+                onTabClose={handleTabClose}
+                onShowOverview={handleShowOverview}
+                showOverview={showOverview}
+              />
+            )
           ) : (
             <div className="flex-1 flex items-center justify-center bg-gray-50">
               <div className="text-center">
@@ -198,7 +270,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
 
         {/* Panel 3: Client Chat */}
         <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
-          <ClientChatPanel client={selectedClient} />
+          <ClientChatPanel 
+            client={selectedClient} 
+            onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
+          />
         </ResizablePanel>
       </ResizablePanelGroup>
 

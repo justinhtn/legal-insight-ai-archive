@@ -8,7 +8,6 @@ import { Card } from '@/components/ui/card';
 import { Client } from '@/services/clientService';
 import { searchDocuments } from '@/services/searchService';
 import { useToast } from '@/hooks/use-toast';
-import { openDocumentWithHighlights } from '@/utils/documentViewerUtils';
 
 interface ChatMessage {
   id: string;
@@ -26,13 +25,18 @@ interface ChatMessage {
     }>;
   }>;
   documentCount?: number;
+  query?: string;
 }
 
 interface ClientChatPanelProps {
   client: Client | null;
+  onOpenDocumentWithHighlights?: (document: any, highlights: any[], query: string) => void;
 }
 
-const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
+const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ 
+  client, 
+  onOpenDocumentWithHighlights 
+}) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -54,31 +58,39 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
   }, [client?.id]);
 
   const loadChatHistory = () => {
-    // For now, we'll start with empty chat history
-    // In a real implementation, you'd load from database
     setMessages([]);
   };
 
   const handleViewDocument = (source: any, query: string) => {
-    // In a real implementation, you'd fetch the full document content
-    // For now, we'll simulate with the excerpts we have
-    const documentContent = source.excerpts?.map((excerpt: any) => excerpt.text).join('\n\n') || 'Document content would be loaded here...';
-    
     const highlights = source.excerpts?.map((excerpt: any) => ({
       text: excerpt.text,
       page: excerpt.page,
       lines: excerpt.lines,
     })) || [];
 
-    openDocumentWithHighlights(
-      source.document_title,
-      documentContent,
-      highlights,
-      query
-    );
+    if (onOpenDocumentWithHighlights) {
+      onOpenDocumentWithHighlights(source, highlights, query);
+    }
   };
 
-  const formatAIResponse = (content: string, sources: any[], documentCount: number) => {
+  const renderMarkdown = (text: string) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/• /g, '• ')
+      .replace(/\n/g, '<br/>');
+  };
+
+  const formatAIResponse = (content: string, sources: any[], documentCount: number, query: string) => {
+    // Limit content to 2-3 paragraphs
+    const paragraphs = content.split('\n\n').filter(p => p.trim());
+    const limitedContent = paragraphs.slice(0, 3).join('\n\n');
+    
+    // Add closing message if content was truncated or if sources exist
+    const closingMessage = sources.length > 0 
+      ? "\n\nReview the highlighted sources below for complete details. Would you like me to elaborate on any specific aspect?"
+      : "";
+
     return (
       <div className="space-y-4">
         {/* AI Analysis Header */}
@@ -91,10 +103,13 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
           AI analysis based on {documentCount} relevant document sections
         </div>
 
-        {/* Main Content */}
-        <div className="text-sm leading-relaxed whitespace-pre-wrap">
-          {content}
-        </div>
+        {/* Main Content with Markdown */}
+        <div 
+          className="text-sm leading-relaxed"
+          dangerouslySetInnerHTML={{ 
+            __html: renderMarkdown(limitedContent + closingMessage)
+          }}
+        />
 
         {/* Key Sources Section */}
         {sources && sources.length > 0 && (
@@ -118,7 +133,7 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleViewDocument(source, messages[messages.length - 2]?.content || '')}
+                    onClick={() => handleViewDocument(source, query)}
                     className="text-xs"
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
@@ -128,12 +143,12 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
                 
                 {source.excerpts && source.excerpts.length > 0 && (
                   <div className="space-y-1 text-xs">
-                    {source.excerpts.map((excerpt: any, excerptIndex: number) => (
+                    {source.excerpts.slice(0, 3).map((excerpt: any, excerptIndex: number) => (
                       <div key={excerptIndex} className="text-gray-700">
                         <span className="font-medium">
                           • {excerpt.page && `Page ${excerpt.page}`}{excerpt.lines && ` • ${excerpt.lines}`}:
                         </span>
-                        <span className="ml-1">"{excerpt.text}"</span>
+                        <span className="ml-1">"{excerpt.text.substring(0, 80)}..."</span>
                       </div>
                     ))}
                   </div>
@@ -162,10 +177,8 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
     setIsLoading(true);
 
     try {
-      // Use the existing search service to get AI responses
       const response = await searchDocuments(currentQuery, client.id);
       
-      // Extract sources from consolidated documents with more detail
       const sources = response.consolidated_documents?.slice(0, 3).map(doc => {
         return {
           document_title: doc.document_title,
@@ -185,6 +198,7 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
         timestamp: new Date(),
         sources,
         documentCount: response.results?.length || 0,
+        query: currentQuery,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -247,7 +261,7 @@ const ClientChatPanel: React.FC<ClientChatPanelProps> = ({ client }) => {
                   : 'bg-gray-100'
               }`}>
                 {message.role === 'assistant' && message.sources ? (
-                  formatAIResponse(message.content, message.sources, message.documentCount || 0)
+                  formatAIResponse(message.content, message.sources, message.documentCount || 0, message.query || '')
                 ) : (
                   <div className="text-sm whitespace-pre-wrap">{message.content}</div>
                 )}
