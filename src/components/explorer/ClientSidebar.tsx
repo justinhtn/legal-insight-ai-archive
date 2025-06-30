@@ -21,9 +21,9 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({
 }) => {
   if (isLoading) {
     return (
-      <div className="w-80 border-r bg-gray-50 flex flex-col">
-        <div className="p-4 border-b bg-white">
-          <h2 className="font-semibold text-lg flex items-center">
+      <div className="h-full flex flex-col">
+        <div className="p-4 border-b border-gray-200">
+          <h2 className="font-semibold text-lg flex items-center text-gray-900">
             <Users className="mr-2 h-5 w-5" />
             All Clients
           </h2>
@@ -36,24 +36,26 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({
   }
 
   return (
-    <div className="w-80 border-r bg-gray-50 flex flex-col">
-      <div className="p-4 border-b bg-white">
-        <h2 className="font-semibold text-lg flex items-center">
+    <div className="h-full flex flex-col">
+      {/* Header - Part of background, no panel styling */}
+      <div className="p-4 border-b border-gray-200">
+        <h2 className="font-semibold text-lg flex items-center text-gray-900">
           <Users className="mr-2 h-5 w-5" />
           All Clients
         </h2>
       </div>
       
+      {/* Client List - Part of background */}
       <div className="flex-1 p-2 overflow-auto">
         <div className="space-y-1">
           {clients.map((client) => (
             <button
               key={client.id}
               onClick={() => onClientSelect(client.id)}
-              className={`w-full text-left px-3 py-3 rounded-md text-sm hover:bg-white transition-colors ${
+              className={`w-full text-left px-3 py-3 rounded-md text-sm transition-colors ${
                 selectedClientId === client.id 
                   ? 'bg-blue-100 text-blue-900 border border-blue-200' 
-                  : 'text-gray-700 hover:text-gray-900'
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
               <div className="font-medium truncate">{client.name}</div>
@@ -75,7 +77,8 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({
         </div>
       </div>
 
-      <div className="p-3 border-t bg-white">
+      {/* New Client Button - Part of background */}
+      <div className="p-3 border-t border-gray-200">
         <Button
           variant="outline"
           size="sm"
