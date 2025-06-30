@@ -9,6 +9,19 @@ import { supabase } from '@/integrations/supabase/client';
 import ClientSidebar from './explorer/ClientSidebar';
 import ClientContentPanel from './explorer/ClientContentPanel';
 import GmailStyleChat from './explorer/GmailStyleChat';
+import TabbedDocumentViewer from './explorer/TabbedDocumentViewer';
+
+interface DocumentTabData {
+  id: string;
+  title: string;
+  content: string;
+  highlights: Array<{
+    text: string;
+    page?: number;
+    lines?: string;
+  }>;
+  query: string;
+}
 
 interface FileExplorerProps {
   onUpload: () => void;
@@ -33,6 +46,11 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
 
   // Chat panel state - persistent per client
   const [chatStates, setChatStates] = useState<Record<string, { isOpen: boolean; messages: any[] }>>({});
+
+  // Document tabs state
+  const [documentTabs, setDocumentTabs] = useState<DocumentTabData[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [showOverview, setShowOverview] = useState(true);
 
   const { toast } = useToast();
 
@@ -62,6 +80,10 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     if (client) {
       setSelectedClient(client);
       setSelectedFolderId(null);
+      // Reset document tabs when switching clients
+      setDocumentTabs([]);
+      setActiveTabId(null);
+      setShowOverview(true);
       
       // Initialize chat state for client if it doesn't exist
       if (!chatStates[clientId]) {
@@ -94,21 +116,49 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     return chatStates[selectedClient.id] || { isOpen: false, messages: [] };
   };
 
-  // Open documents in new tabs instead of middle panel
-  const handleOpenDocumentWithHighlights = (document: any, highlights: any[], query: string) => {
-    const params = new URLSearchParams({
-      title: document.document_title || document.title,
-      highlights: JSON.stringify(highlights),
-      query: query
-    });
-    
-    // Open in new tab - this would be implemented as a separate document viewer route
-    window.open(`/document-viewer?${params.toString()}`, '_blank');
-    
-    toast({
-      title: "Opening Document",
-      description: `Opening ${document.document_title || document.title} in new tab`,
-    });
+  // Handle opening documents with highlights in tabs
+  const handleOpenDocumentWithHighlights = async (document: any, highlights: any[], query: string) => {
+    try {
+      console.log('Opening document with highlights:', { document, highlights, query });
+      
+      // Load full document content
+      const { data: fullDoc, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('id', document.id || document.document_id)
+        .single();
+
+      if (error) throw error;
+
+      const tabId = `doc-${fullDoc.id}-${Date.now()}`;
+      const newTab: DocumentTabData = {
+        id: tabId,
+        title: fullDoc.file_name,
+        content: fullDoc.content || 'Document content will be loaded here',
+        highlights: highlights.map(h => ({
+          text: h.text,
+          page: h.page,
+          lines: h.lines
+        })),
+        query
+      };
+
+      setDocumentTabs(prev => [...prev, newTab]);
+      setActiveTabId(tabId);
+      setShowOverview(false);
+      
+      toast({
+        title: "Document Opened",
+        description: `Opened ${fullDoc.file_name} with ${highlights.length} highlights`,
+      });
+    } catch (error) {
+      console.error('Error loading document:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load document",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleOpenDocument = async (document: any) => {
@@ -122,19 +172,22 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
 
       if (error) throw error;
 
-      const params = new URLSearchParams({
+      const tabId = `doc-${fullDoc.id}-${Date.now()}`;
+      const newTab: DocumentTabData = {
+        id: tabId,
         title: fullDoc.file_name,
         content: fullDoc.content || 'Document content will be loaded here',
-        highlights: JSON.stringify([]),
+        highlights: [],
         query: ''
-      });
-      
-      // Open in new tab
-      window.open(`/document-viewer?${params.toString()}`, '_blank');
+      };
+
+      setDocumentTabs(prev => [...prev, newTab]);
+      setActiveTabId(tabId);
+      setShowOverview(false);
       
       toast({
-        title: "Opening Document",
-        description: `Opening ${fullDoc.file_name} in new tab`,
+        title: "Document Opened",
+        description: `Opened ${fullDoc.file_name}`,
       });
     } catch (error) {
       console.error('Error loading document:', error);
@@ -144,6 +197,29 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
         variant: "destructive",
       });
     }
+  };
+
+  const handleTabClose = (tabId: string) => {
+    setDocumentTabs(prev => prev.filter(tab => tab.id !== tabId));
+    if (activeTabId === tabId) {
+      const remainingTabs = documentTabs.filter(tab => tab.id !== tabId);
+      if (remainingTabs.length > 0) {
+        setActiveTabId(remainingTabs[remainingTabs.length - 1].id);
+      } else {
+        setActiveTabId(null);
+        setShowOverview(true);
+      }
+    }
+  };
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTabId(tabId);
+    setShowOverview(false);
+  };
+
+  const handleShowOverview = () => {
+    setShowOverview(true);
+    setActiveTabId(null);
   };
 
   const handleCreateFolder = async () => {
@@ -251,18 +327,46 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
           currentChatState.isOpen ? 'flex-1 mr-96' : 'flex-1'
         }`}>
           {selectedClient ? (
-            <ClientContentPanel
-              client={selectedClient}
-              selectedFolderId={selectedFolderId}
-              onFolderSelect={handleFolderSelect}
-              onNewFolder={() => setShowNewFolderDialog(true)}
-              onUpload={handleUploadWithContext}
-              onClientUpdated={handleClientUpdated}
-              onOpenDocument={handleOpenDocument}
-              isChatOpen={currentChatState.isOpen}
-              onToggleChat={handleToggleChat}
-              onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
-            />
+            <>
+              {/* Tab Bar */}
+              <TabbedDocumentViewer
+                tabs={documentTabs}
+                activeTabId={activeTabId}
+                onTabChange={handleTabChange}
+                onTabClose={handleTabClose}
+                onShowOverview={handleShowOverview}
+                showOverview={showOverview}
+                showTabsOnly={true}
+              />
+              
+              {/* Content Area */}
+              <div className="flex-1 overflow-hidden">
+                {showOverview || !activeTabId ? (
+                  <ClientContentPanel
+                    client={selectedClient}
+                    selectedFolderId={selectedFolderId}
+                    onFolderSelect={handleFolderSelect}
+                    onNewFolder={() => setShowNewFolderDialog(true)}
+                    onUpload={handleUploadWithContext}
+                    onClientUpdated={handleClientUpdated}
+                    onOpenDocument={handleOpenDocument}
+                    isChatOpen={currentChatState.isOpen}
+                    onToggleChat={handleToggleChat}
+                    onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
+                  />
+                ) : (
+                  <TabbedDocumentViewer
+                    tabs={documentTabs}
+                    activeTabId={activeTabId}
+                    onTabChange={handleTabChange}
+                    onTabClose={handleTabClose}
+                    onShowOverview={handleShowOverview}
+                    showOverview={showOverview}
+                    showTabsOnly={false}
+                  />
+                )}
+              </div>
+            </>
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
