@@ -1,7 +1,6 @@
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { X, FileText, Lightbulb } from 'lucide-react';
+import React from 'react';
+import { FileText } from 'lucide-react';
 import DocumentTab from './DocumentTab';
 
 interface DocumentTabData {
@@ -37,61 +36,14 @@ const TabbedDocumentViewer: React.FC<TabbedDocumentViewerProps> = ({
 }) => {
   const activeTab = tabs.find(tab => tab.id === activeTabId);
 
-  const TabBar = () => (
-    <div className="flex items-center bg-gray-100 border-b overflow-x-auto">
-      {/* Overview Tab */}
-      <Button
-        variant={showOverview ? "default" : "ghost"}
-        size="sm"
-        onClick={onShowOverview}
-        className="flex-shrink-0 rounded-none border-r"
-      >
-        Overview
-      </Button>
-
-      {/* Document Tabs */}
-      {tabs.map((tab) => (
-        <div
-          key={tab.id}
-          className={`flex items-center border-r ${
-            activeTabId === tab.id ? 'bg-white' : 'bg-gray-100'
-          }`}
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onTabChange(tab.id)}
-            className="flex items-center gap-2 rounded-none px-3 py-2"
-          >
-            <FileText className="h-4 w-4" />
-            <span className="max-w-32 truncate">{tab.title}</span>
-            {tab.highlights.length > 0 && (
-              <div title="Has highlights">
-                <Lightbulb className="h-3 w-3 text-yellow-500" />
-              </div>
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onTabClose(tab.id)}
-            className="p-1 h-8 w-8 rounded-none hover:bg-red-100"
-          >
-            <X className="h-3 w-3" />
-          </Button>
-        </div>
-      ))}
-    </div>
-  );
-
-  // If only showing tabs, return just the tab bar
+  // If only showing tabs, return just empty div (tabs are handled by parent)
   if (showTabsOnly) {
-    return <TabBar />;
+    return <div />;
   }
 
   return (
     <div className="h-full flex flex-col bg-white">
-      {/* Tab Content - NO TAB BAR HERE when showTabsOnly is false */}
+      {/* Content Area - No duplicate tabs here */}
       <div className="flex-1 overflow-hidden">
         {showOverview ? (
           <div className="h-full flex items-center justify-center bg-gray-50">

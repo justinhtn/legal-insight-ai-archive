@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getClients, getFolders, Client, Folder } from '@/services/clientService';
@@ -5,10 +6,11 @@ import { getDocuments } from '@/services/documentService';
 import ClientSidebar from './explorer/ClientSidebar';
 import FilePanel from './explorer/FilePanel';
 import TabbedDocumentViewer from './explorer/TabbedDocumentViewer';
-import GmailStyleChatPanel from './explorer/GmailStyleChatPanel';
+import GmailStyleChat from './explorer/GmailStyleChat';
 import DocumentUploadModal from './DocumentUploadModal';
 import { toast } from 'sonner';
-import { FileText, Lightbulb, X } from 'lucide-react';
+import { FileText, Lightbulb, X, MessageCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Document {
   id: string;
@@ -148,6 +150,8 @@ const FileExplorer: React.FC = () => {
   };
 
   const handleDocumentOpen = (document: any, highlights: any[], query: string) => {
+    console.log('FileExplorer: Opening document with highlights', { document, highlights, query });
+    
     const newTab: DocumentTabData = {
       id: document.document_file_name || document.id,
       name: document.document_title || document.name,
@@ -197,7 +201,9 @@ const FileExplorer: React.FC = () => {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-white">
+        <div className={`flex-1 flex flex-col overflow-hidden bg-white transition-all duration-300 ${
+          isChatOpen ? 'mr-80' : ''
+        }`}>
           {selectedClientId ? (
             <>
               {/* Document Tabs Bar */}
@@ -266,7 +272,7 @@ const FileExplorer: React.FC = () => {
                       onTabClose={handleCloseTab}
                       onShowOverview={handleShowOverview}
                       showOverview={showOverview}
-                      showTabsOnly={true}
+                      showTabsOnly={false}
                     />
                   </div>
                 )}
@@ -287,14 +293,32 @@ const FileExplorer: React.FC = () => {
           )}
         </div>
 
-        {/* Gmail-Style Chat Panel */}
-        {selectedClientId && (
-          <GmailStyleChatPanel
-            client={selectedClient || null}
-            isOpen={isChatOpen}
-            onOpenDocumentWithHighlights={handleDocumentOpen}
-            onToggle={() => setIsChatOpen(!isChatOpen)}
-          />
+        {/* Chat Toggle Button - Fixed position when closed */}
+        {selectedClientId && !isChatOpen && (
+          <div className="absolute top-20 right-4 z-10">
+            <Button
+              onClick={() => setIsChatOpen(true)}
+              variant="default"
+              size="icon"
+              className="w-12 h-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
+            >
+              <MessageCircle className="h-6 w-6 text-white" />
+            </Button>
+          </div>
+        )}
+
+        {/* Chat Panel - Fixed width panel on the right */}
+        {selectedClientId && isChatOpen && (
+          <div className="w-80 flex-shrink-0 border-l border-gray-200 bg-white">
+            <GmailStyleChat
+              client={selectedClient || null}
+              isOpen={isChatOpen}
+              onOpenDocumentWithHighlights={handleDocumentOpen}
+              onToggle={() => setIsChatOpen(false)}
+              openTabs={openTabs}
+              onSwitchToTab={handleTabChange}
+            />
+          </div>
         )}
       </div>
 

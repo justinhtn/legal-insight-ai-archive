@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Loader2, FileText } from 'lucide-react';
+import { MessageCircle, Send, Loader2, FileText, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
@@ -157,7 +157,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
   };
 
   const handleViewDocument = (source: any, query: string, aiResponse: string) => {
-    console.log('Opening document with highlights:', { source, query, aiResponse });
+    console.log('GmailStyleChat: Opening document with highlights:', { source, query, aiResponse });
     
     // Check if document is already open
     const existingTab = findExistingTab(source.document_id, source.document_title);
@@ -182,8 +182,8 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
 
     console.log('Formatted highlights:', highlights);
 
-    if (onOpenDocumentWithHighlights && highlights.length > 0) {
-      // Find the document by ID or title
+    if (onOpenDocumentWithHighlights) {
+      // Create document data object
       const documentData = {
         id: source.document_id,
         title: source.document_title,
@@ -194,23 +194,18 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       
       console.log('Calling onOpenDocumentWithHighlights with:', { documentData, highlights, query });
       onOpenDocumentWithHighlights(documentData, highlights, query);
-    } else {
-      toast({
-        title: "Opening document",
-        description: `Opening ${source.document_title}`,
-      });
       
-      // Fallback: open document without highlights
-      if (onOpenDocumentWithHighlights) {
-        const documentData = {
-          id: source.document_id,
-          title: source.document_title,
-          file_name: source.document_file_name,
-          document_title: source.document_title,
-          document_file_name: source.document_file_name,
-        };
-        onOpenDocumentWithHighlights(documentData, [], query);
-      }
+      toast({
+        title: "Document opened",
+        description: `Opened ${source.document_title} with ${highlights.length} highlights`,
+      });
+    } else {
+      console.log('onOpenDocumentWithHighlights not available');
+      toast({
+        title: "Error",
+        description: "Cannot open document - handler not available",
+        variant: "destructive",
+      });
     }
   };
 
@@ -274,7 +269,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
       role: 'user',
       content: inputValue.trim(),
       timestamp: new Date(),
-      query: inputValue.trim(), // Store the query in the user message
+      query: inputValue.trim(),
     };
 
     updateMessages(prev => [...prev, userMessage]);
@@ -354,12 +349,20 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Header - No close button, just the title */}
-      <div className="p-4 border-b bg-gray-50 rounded-t-lg flex items-center flex-shrink-0">
+      {/* Header with close button */}
+      <div className="p-4 border-b bg-gray-50 rounded-t-lg flex items-center justify-between flex-shrink-0">
         <div className="flex items-center">
           <MessageCircle className="mr-2 h-5 w-5 text-blue-600" />
           <span className="font-semibold text-gray-900">Chat - {client.name}</span>
         </div>
+        <Button
+          onClick={onToggle}
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Messages - Scrollable area */}
