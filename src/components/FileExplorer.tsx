@@ -25,9 +25,9 @@ interface DocumentTabData {
   name: string;
   type: 'document' | 'folder';
   title: string;
-  content?: string;
-  highlights?: string[];
-  query?: string;
+  content: string;
+  highlights: string[];
+  query: string;
 }
 
 const FileExplorer: React.FC = () => {
@@ -133,11 +133,11 @@ const FileExplorer: React.FC = () => {
   }));
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-screen flex flex-col bg-white">
       {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Client Sidebar */}
-        <div className="w-64 flex-shrink-0">
+        <div className="w-64 flex-shrink-0 bg-gray-50 border-r border-gray-200">
           <ClientSidebar
             clients={clients}
             selectedClientId={selectedClientId}
@@ -148,22 +148,31 @@ const FileExplorer: React.FC = () => {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden bg-white">
           {selectedClientId ? (
             <>
               {/* Browser-like Tabs */}
-              <div className="bg-background border-b border-border">
+              <div className="bg-white border-b border-gray-200">
                 <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-                  <TabsList className="h-10 bg-muted/50 rounded-none w-full justify-start border-b border-border">
-                    <TabsTrigger value="files" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                  <TabsList className="h-12 bg-white rounded-none w-full justify-start border-0 p-0">
+                    <TabsTrigger 
+                      value="files" 
+                      className="flex items-center gap-2 px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 hover:bg-gray-50 transition-colors"
+                    >
                       <Files className="h-4 w-4" />
                       Files
                     </TabsTrigger>
-                    <TabsTrigger value="chat" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <TabsTrigger 
+                      value="chat" 
+                      className="flex items-center gap-2 px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 hover:bg-gray-50 transition-colors"
+                    >
                       <MessageSquare className="h-4 w-4" />
                       Chat
                     </TabsTrigger>
-                    <TabsTrigger value="settings" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <TabsTrigger 
+                      value="settings" 
+                      className="flex items-center gap-2 px-6 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 hover:bg-gray-50 transition-colors"
+                    >
                       <Settings className="h-4 w-4" />
                       Settings
                     </TabsTrigger>
@@ -190,7 +199,7 @@ const FileExplorer: React.FC = () => {
 
                       {/* Document Viewer */}
                       {openTabs.length > 0 && (
-                        <div className="w-1/2 border-l border-border">
+                        <div className="w-1/2 border-l border-gray-200 bg-white">
                           <TabbedDocumentViewer
                             tabs={openTabs}
                             onCloseTab={handleCloseTab}
@@ -203,15 +212,21 @@ const FileExplorer: React.FC = () => {
                   <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">
                     <ClientContentPanel
                       client={selectedClient}
+                      onFolderSelect={() => {}}
+                      onNewFolder={() => {}}
+                      onUpload={handleUpload}
+                      onClientUpdated={() => {}}
+                      folders={folders}
+                      isLoading={false}
                     />
                   </TabsContent>
 
                   <TabsContent value="settings" className="flex-1 overflow-hidden mt-0">
-                    <div className="flex items-center justify-center h-full">
+                    <div className="flex items-center justify-center h-full bg-white">
                       <div className="text-center">
-                        <Settings className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-medium text-foreground mb-2">Client Settings</h3>
-                        <p className="text-muted-foreground text-sm">
+                        <Settings className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Client Settings</h3>
+                        <p className="text-gray-500 text-sm">
                           Client settings panel coming soon
                         </p>
                       </div>
@@ -221,13 +236,13 @@ const FileExplorer: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center bg-white">
               <div className="text-center">
-                <Files className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                <h2 className="text-2xl font-semibold text-foreground mb-2">
+                <Files className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                <h2 className="text-2xl font-semibold text-gray-900 mb-2">
                   Welcome to Legal Document Manager
                 </h2>
-                <p className="text-muted-foreground text-lg">
+                <p className="text-gray-500 text-lg">
                   Select a client from the sidebar to view their files and folders
                 </p>
               </div>
@@ -242,7 +257,8 @@ const FileExplorer: React.FC = () => {
           isOpen={showUploadModal}
           onClose={() => setShowUploadModal(false)}
           onUpload={handleUploadSuccess}
-          folderId={selectedFolderId}
+          selectedClientId={selectedClientId}
+          selectedFolderId={selectedFolderId}
         />
       )}
     </div>

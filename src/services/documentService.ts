@@ -35,3 +35,31 @@ export const getDocuments = async (folderId: string): Promise<Document[]> => {
     content: doc.content
   }));
 };
+
+export const uploadDocument = async (
+  file: File, 
+  clientId?: string | null, 
+  folderId?: string | null
+): Promise<any> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  if (clientId) {
+    formData.append('client_id', clientId);
+  }
+  
+  if (folderId) {
+    formData.append('folder_id', folderId);
+  }
+
+  // Call the Supabase Edge Function for document processing
+  const { data, error } = await supabase.functions.invoke('process-document', {
+    body: formData,
+  });
+
+  if (error) {
+    throw new Error(`Upload failed: ${error.message}`);
+  }
+
+  return data;
+};
