@@ -19,6 +19,16 @@ export const openDocumentWithHighlights = (
     return;
   }
 
+  // Helper function to highlight content
+  function highlightContent(content: string, highlights: DocumentHighlight[]) {
+    let result = content;
+    highlights.forEach((highlight, index) => {
+      const regex = new RegExp(highlight.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      result = result.replace(regex, `<span id="highlight-${index}" class="highlight">${highlight.text}</span>`);
+    });
+    return result;
+  }
+
   // Generate the HTML content for the document viewer
   const htmlContent = `
     <!DOCTYPE html>
@@ -82,17 +92,8 @@ export const openDocumentWithHighlights = (
         let currentHighlight = 0;
         const totalHighlights = ${highlights.length};
         
-        function highlightContent(content, highlights) {
-          let result = content;
-          highlights.forEach((highlight, index) => {
-            const regex = new RegExp(highlight.text.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'), 'gi');
-            result = result.replace(regex, \`<span id="highlight-\${index}" class="highlight">\${highlight.text}</span>\`);
-          });
-          return result;
-        }
-        
         function scrollToHighlight(index) {
-          const element = document.getElementById(\`highlight-\${index}\`);
+          const element = document.getElementById('highlight-' + index);
           if (element) {
             // Remove current highlight
             document.querySelectorAll('.current-highlight').forEach(el => el.classList.remove('current-highlight'));
@@ -127,7 +128,7 @@ export const openDocumentWithHighlights = (
         }
         
         function updateCounter() {
-          document.getElementById('highlight-counter').textContent = \`Highlight \${currentHighlight + 1} of \${totalHighlights}\`;
+          document.getElementById('highlight-counter').textContent = 'Highlight ' + (currentHighlight + 1) + ' of ' + totalHighlights;
         }
         
         // Initialize first highlight
@@ -136,15 +137,6 @@ export const openDocumentWithHighlights = (
     </body>
     </html>
   `;
-
-  function highlightContent(content: string, highlights: DocumentHighlight[]) {
-    let result = content;
-    highlights.forEach((highlight, index) => {
-      const regex = new RegExp(highlight.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      result = result.replace(regex, `<span id="highlight-${index}" class="highlight">${highlight.text}</span>`);
-    });
-    return result;
-  }
 
   // Write the HTML content to the new window
   newWindow.document.write(htmlContent);
