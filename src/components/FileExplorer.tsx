@@ -8,20 +8,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import ClientSidebar from './explorer/ClientSidebar';
 import ClientContentPanel from './explorer/ClientContentPanel';
-import TabbedDocumentViewer from './explorer/TabbedDocumentViewer';
 import GmailStyleChat from './explorer/GmailStyleChat';
-
-interface DocumentTabData {
-  id: string;
-  title: string;
-  content: string;
-  highlights: Array<{
-    text: string;
-    page?: number;
-    lines?: string;
-  }>;
-  query: string;
-}
 
 interface FileExplorerProps {
   onUpload: () => void;
@@ -43,11 +30,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     case_number: '',
     matter_type: ''
   });
-
-  // Document tab management
-  const [documentTabs, setDocumentTabs] = useState<DocumentTabData[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [showOverview, setShowOverview] = useState(true);
 
   // Chat panel state - persistent per client
   const [chatStates, setChatStates] = useState<Record<string, { isOpen: boolean; messages: any[] }>>({});
@@ -81,11 +63,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
       setSelectedClient(client);
       setSelectedFolderId(null);
       
-      // Clear document tabs when switching clients - THIS FIXES TAB DUPLICATION
-      setDocumentTabs([]);
-      setActiveTabId(null);
-      setShowOverview(true);
-      
       // Initialize chat state for client if it doesn't exist
       if (!chatStates[clientId]) {
         setChatStates(prev => ({
@@ -117,71 +94,24 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onUpload, onNavigateToSearc
     return chatStates[selectedClient.id] || { isOpen: false, messages: [] };
   };
 
+  // Open documents in new tabs instead of middle panel
   const handleOpenDocumentWithHighlights = (document: any, highlights: any[], query: string) => {
-    const tabId = `${document.document_file_name}-${query}-${Date.now()}`;
-    
-    // Check if this exact document + query combo already exists - PREVENTS DUPLICATES
-    const existingTabIndex = documentTabs.findIndex(tab => 
-      tab.title === document.document_title && tab.query === query
-    );
-    
-    if (existingTabIndex !== -1) {
-      // Tab already exists, just switch to it
-      setActiveTabId(documentTabs[existingTabIndex].id);
-      setShowOverview(false);
-      return;
-    }
-
-    // Load full document content
-    const fullDocumentContent = `${document.document_title}
-
-CONFIDENTIAL ATTORNEY-CLIENT PRIVILEGED
-
-This is the full document content for ${document.document_title}. In a real implementation, this would contain the complete document text loaded from the database, not just excerpts.
-
-The document would include:
-- Complete text content with proper formatting
-- All sections, paragraphs, and details
-- Headers, footers, and metadata
-- Full context around highlighted sections
-
-${document.excerpts?.map((excerpt: any, index: number) => `
-Section ${index + 1}:
-${excerpt.text}
-`).join('\n') || ''}
-
-[Complete document content would continue here with all remaining text...]
-
-This ensures users can read the full context around highlighted sections and understand the complete document structure and content.`;
-    
-    const newTab: DocumentTabData = {
-      id: tabId,
-      title: document.document_title,
-      content: fullDocumentContent,
-      highlights: highlights,
+    const params = new URLSearchParams({
+      title: document.document_title || document.title,
+      highlights: JSON.stringify(highlights),
       query: query
-    };
-
-    setDocumentTabs(prev => [...prev, newTab]);
-    setActiveTabId(tabId);
-    setShowOverview(false);
+    });
+    
+    // Open in new tab - this would be implemented as a separate document viewer route
+    window.open(`/document-viewer?${params.toString()}`, '_blank');
+    
+    toast({
+      title: "Opening Document",
+      description: `Opening ${document.document_title || document.title} in new tab`,
+    });
   };
 
   const handleOpenDocument = async (document: any) => {
-    const tabId = `${document.name}-${Date.now()}`;
-    
-    // Check if this document is already open (without query) - PREVENTS DUPLICATES
-    const existingTabIndex = documentTabs.findIndex(tab => 
-      tab.title === document.name && !tab.query
-    );
-    
-    if (existingTabIndex !== -1) {
-      // Tab already exists, just switch to it
-      setActiveTabId(documentTabs[existingTabIndex].id);
-      setShowOverview(false);
-      return;
-    }
-
     try {
       // Load the full document content from database
       const { data: fullDoc, error } = await supabase
@@ -192,47 +122,20 @@ This ensures users can read the full context around highlighted sections and und
 
       if (error) throw error;
 
-      // Create full document content
-      const fullDocumentContent = `${fullDoc.file_name}
-
-FULL DOCUMENT CONTENT
-
-This is the complete document content for ${fullDoc.file_name}. 
-
-Document Details:
-- File Name: ${fullDoc.file_name}
-- File Size: ${fullDoc.file_size} bytes
-- Upload Date: ${new Date(fullDoc.created_at).toLocaleDateString()}
-- Last Modified: ${new Date(fullDoc.updated_at).toLocaleDateString()}
-
-${fullDoc.content || `Full document text would be loaded here. This would include:
-
-1. Complete document structure
-2. All paragraphs and sections
-3. Headers, footers, and formatting
-4. Tables, lists, and special content
-5. Full text that users can scroll through
-
-The document content would be parsed and displayed in its entirety,
-allowing users to read the complete context and navigate through
-all sections of the document.
-
-This ensures lawyers have access to the full document when reviewing
-cases and can see all details in their proper context.`}
-
-[End of Document]`;
-      
-      const newTab: DocumentTabData = {
-        id: tabId,
-        title: document.name,
-        content: fullDocumentContent,
-        highlights: [],
+      const params = new URLSearchParams({
+        title: fullDoc.file_name,
+        content: fullDoc.content || 'Document content will be loaded here',
+        highlights: JSON.stringify([]),
         query: ''
-      };
-
-      setDocumentTabs(prev => [...prev, newTab]);
-      setActiveTabId(tabId);
-      setShowOverview(false);
+      });
+      
+      // Open in new tab
+      window.open(`/document-viewer?${params.toString()}`, '_blank');
+      
+      toast({
+        title: "Opening Document",
+        description: `Opening ${fullDoc.file_name} in new tab`,
+      });
     } catch (error) {
       console.error('Error loading document:', error);
       toast({
@@ -241,30 +144,6 @@ cases and can see all details in their proper context.`}
         variant: "destructive",
       });
     }
-  };
-
-  const handleTabChange = (tabId: string) => {
-    setActiveTabId(tabId);
-    setShowOverview(false);
-  };
-
-  const handleTabClose = (tabId: string) => {
-    setDocumentTabs(prev => prev.filter(tab => tab.id !== tabId));
-    
-    if (activeTabId === tabId) {
-      const remainingTabs = documentTabs.filter(tab => tab.id !== tabId);
-      if (remainingTabs.length > 0) {
-        setActiveTabId(remainingTabs[remainingTabs.length - 1].id);
-      } else {
-        setShowOverview(true);
-        setActiveTabId(null);
-      }
-    }
-  };
-
-  const handleShowOverview = () => {
-    setShowOverview(true);
-    setActiveTabId(null);
   };
 
   const handleCreateFolder = async () => {
@@ -353,10 +232,10 @@ cases and can see all details in their proper context.`}
 
   return (
     <div className="h-screen bg-gray-50 p-4 overflow-hidden">
-      {/* Updated layout proportions: 15% - 55% - 30% */}
-      <div className="flex h-full gap-4">
+      {/* Gmail-style responsive layout */}
+      <div className="flex h-full gap-4 relative">
         
-        {/* Client List - Narrower (15%) */}
+        {/* Client List - Fixed width (15%) */}
         <div className="w-1/6 flex-shrink-0 h-full overflow-hidden">
           <ClientSidebar
             clients={clients}
@@ -367,51 +246,23 @@ cases and can see all details in their proper context.`}
           />
         </div>
 
-        {/* Main Content - Smaller (55%) */}
-        <div className="flex-1 bg-white rounded-lg shadow-sm border flex flex-col min-w-0 h-full overflow-hidden" style={{ flex: '0 0 55%' }}>
+        {/* Main Content - Responsive width based on chat state */}
+        <div className={`bg-white rounded-lg shadow-sm border flex flex-col min-w-0 h-full overflow-hidden transition-all duration-300 ${
+          currentChatState.isOpen ? 'flex-1 mr-96' : 'flex-1'
+        }`}>
           {selectedClient ? (
-            <>
-              {/* Tab Bar - SINGLE INSTANCE ONLY */}
-              <div className="sticky top-0 z-10 bg-white border-b rounded-t-lg flex-shrink-0">
-                <TabbedDocumentViewer
-                  tabs={documentTabs}
-                  activeTabId={activeTabId}
-                  onTabChange={handleTabChange}
-                  onTabClose={handleTabClose}
-                  onShowOverview={handleShowOverview}
-                  showOverview={showOverview}
-                  showTabsOnly={true}
-                />
-              </div>
-
-              {/* Content area - Scrollable */}
-              <div className="flex-1 overflow-hidden">
-                {showOverview ? (
-                  <ClientContentPanel
-                    client={selectedClient}
-                    selectedFolderId={selectedFolderId}
-                    onFolderSelect={handleFolderSelect}
-                    onNewFolder={() => setShowNewFolderDialog(true)}
-                    onUpload={handleUploadWithContext}
-                    onClientUpdated={handleClientUpdated}
-                    onOpenDocument={handleOpenDocument}
-                    isChatOpen={currentChatState.isOpen}
-                    onToggleChat={handleToggleChat}
-                    onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
-                  />
-                ) : (
-                  <TabbedDocumentViewer
-                    tabs={documentTabs}
-                    activeTabId={activeTabId}
-                    onTabChange={handleTabChange}
-                    onTabClose={handleTabClose}
-                    onShowOverview={handleShowOverview}
-                    showOverview={showOverview}
-                    showTabsOnly={false}
-                  />
-                )}
-              </div>
-            </>
+            <ClientContentPanel
+              client={selectedClient}
+              selectedFolderId={selectedFolderId}
+              onFolderSelect={handleFolderSelect}
+              onNewFolder={() => setShowNewFolderDialog(true)}
+              onUpload={handleUploadWithContext}
+              onClientUpdated={handleClientUpdated}
+              onOpenDocument={handleOpenDocument}
+              isChatOpen={currentChatState.isOpen}
+              onToggleChat={handleToggleChat}
+              onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
+            />
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
@@ -431,12 +282,14 @@ cases and can see all details in their proper context.`}
           )}
         </div>
 
-        {/* Chat Panel - Wider (30%) */}
-        {selectedClient && currentChatState.isOpen && (
-          <div className="w-1/3 bg-white rounded-lg shadow-sm border flex-shrink-0 h-full overflow-hidden" style={{ flex: '0 0 30%' }}>
+        {/* Chat Panel - Fixed position, slides in from right */}
+        {selectedClient && (
+          <div className={`fixed right-4 top-4 bottom-4 w-96 bg-white rounded-lg shadow-lg border transform transition-transform duration-300 z-50 ${
+            currentChatState.isOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}>
             <GmailStyleChat
               client={selectedClient}
-              isOpen={true}
+              isOpen={currentChatState.isOpen}
               onOpenDocumentWithHighlights={handleOpenDocumentWithHighlights}
               onToggle={handleToggleChat}
             />
@@ -444,7 +297,6 @@ cases and can see all details in their proper context.`}
         )}
       </div>
 
-      {/* Dialogs remain the same */}
       <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
         <DialogContent>
           <DialogHeader>

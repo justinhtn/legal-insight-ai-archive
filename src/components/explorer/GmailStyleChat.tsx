@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send, Loader2, FileText, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { Client } from '@/services/clientService';
 import { searchDocuments } from '@/services/searchService';
 import { useToast } from '@/hooks/use-toast';
@@ -47,6 +48,7 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
   // Auto-scroll to bottom when new messages arrive
@@ -70,6 +72,49 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     setMessages([]);
   };
 
+  // Auto-expanding textarea logic
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const textarea = e.target;
+    setInputValue(e.target.value);
+    
+    // Reset height to auto to get accurate scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Set height based on content
+    const scrollHeight = textarea.scrollHeight;
+    const maxHeight = 200; // Maximum height before scrolling
+    
+    if (scrollHeight <= maxHeight) {
+      textarea.style.height = scrollHeight + 'px';
+    } else {
+      textarea.style.height = maxHeight + 'px';
+      textarea.style.overflowY = 'scroll';
+    }
+  };
+
+  // Filter sources to only show documents actually referenced by AI
+  const filterRelevantSources = (sources: any[], aiResponse: string) => {
+    if (!sources || sources.length === 0) return sources;
+    
+    return sources.filter(source => {
+      const fileName = source.document_file_name || source.document_title;
+      const fileNameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+      
+      // Check if AI response contains reference to this specific document
+      const aiLower = aiResponse.toLowerCase();
+      const fileNameLower = fileName.toLowerCase();
+      const fileNameNoExtLower = fileNameWithoutExt.toLowerCase();
+      
+      // Look for exact mentions of the document name
+      return aiLower.includes(fileNameLower) || 
+             aiLower.includes(fileNameNoExtLower) ||
+             // Also check if any excerpts from this document are directly quoted
+             source.excerpts?.some((excerpt: any) => 
+               aiLower.includes(excerpt.text.toLowerCase().substring(0, 50))
+             );
+    });
+  };
+
   const handleViewDocument = (source: any, query: string, aiResponse: string) => {
     console.log('Opening document with highlights:', { source, query, aiResponse });
     
@@ -89,8 +134,8 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
         id: source.document_id,
         title: source.document_title,
         file_name: source.document_file_name,
-        document_title: source.document_title, // Add this for compatibility
-        document_file_name: source.document_file_name, // Add this for compatibility
+        document_title: source.document_title,
+        document_file_name: source.document_file_name,
       };
       
       console.log('Calling onOpenDocumentWithHighlights with:', { documentData, highlights, query });
@@ -164,6 +209,9 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
   const formatAIResponse = (content: string, sources: any[], documentCount: number, query: string) => {
     const conciseContent = getConciseResponse(content);
     
+    // Filter sources to only show documents actually referenced by AI
+    const relevantSources = filterRelevantSources(sources, content);
+    
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-blue-600 font-semibold">
@@ -181,14 +229,14 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
           {conciseContent}
         </div>
 
-        {sources && sources.length > 0 && (
+        {relevantSources && relevantSources.length > 0 && (
           <div className="mt-6 space-y-3">
             <div className="flex items-center gap-2 font-semibold text-gray-700">
               <span>📚</span>
-              <span>Key Sources</span>
+              <span>Key Sources ({relevantSources.length})</span>
             </div>
 
-            {sources.map((source, sourceIndex) => (
+            {relevantSources.map((source, sourceIndex) => (
               <div key={sourceIndex} className="border-l-4 border-gray-200 pl-4 space-y-2">
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-gray-500" />
@@ -244,6 +292,12 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
     setMessages(prev => [...prev, userMessage]);
     const currentQuery = inputValue.trim();
     setInputValue('');
+    
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+    
     setIsLoading(true);
 
     try {
@@ -374,21 +428,24 @@ const GmailStyleChat: React.FC<GmailStyleChatProps> = ({
         </ScrollArea>
       </div>
 
-      {/* Input - Fixed at bottom */}
+      {/* Input - Fixed at bottom with auto-expanding textarea */}
       <div className="p-4 border-t bg-white flex-shrink-0">
-        <div className="flex gap-2">
-          <Input
+        <div className="flex gap-2 items-end">
+          <Textarea
+            ref={textareaRef}
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={handleInputChange}
             onKeyPress={handleKeyPress}
             placeholder={`Ask about ${client.name}'s documents or folders...`}
             disabled={isLoading}
-            className="flex-1"
+            className="flex-1 resize-none min-h-[40px] max-h-[200px]"
+            rows={1}
           />
           <Button 
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isLoading}
             size="icon"
+            className="flex-shrink-0"
           >
             <Send className="h-4 w-4" />
           </Button>
