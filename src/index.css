@@ -212,7 +212,7 @@ All colors MUST be HSL.
   margin: 0;
   background: #f1f3f4;
   border: none;
-  border-radius: 12px 12px 0px 0px !important;
+  border-radius: 12px 12px 12px 12px !important;
   color: #5f6368;
   font-size: 13px;
   font-weight: 400;
