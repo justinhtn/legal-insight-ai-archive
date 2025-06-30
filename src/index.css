@@ -309,6 +309,23 @@ All colors MUST be HSL.
   background: #dadce0;
 }
 
+
+/* Chat Panel Component Override */
+.chat-panel .h-full {
+  height: 100vh !important;
+}
+
+.chat-panel .flex-1 {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.chat-panel [data-radix-scroll-area-viewport] {
+  height: 100% !important;
+}
+
+
 /* Remove separator for active tabs or when hovering */
 .document-tab.active + .document-tab::before,
 .document-tab + .document-tab.active::before,
