@@ -293,7 +293,7 @@ const Index = () => {
                 </Button>
               </div>
               
-              <div className="space-y-2">
+              <div className="flex flex-col s space-y-2">
                 <Button 
                   variant={viewMode === 'home' ? 'default' : 'outline'}
                   size="icon"
