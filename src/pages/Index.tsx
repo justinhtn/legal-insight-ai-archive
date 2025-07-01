@@ -214,6 +214,8 @@ const Index = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('home');
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
+    const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+    const [selectedExplorerClientId, setSelectedExplorerClientId] = useState<string>();
 
   // Fetch clients for explorer
   const { data: explorerClients = [] } = useQuery({
@@ -261,19 +263,17 @@ const Index = () => {
     }
   };
 
-  const toggleClientExpansion = (clientId: string) => {
-    const newExpanded = new Set(expandedClients);
-    if (newExpanded.has(clientId)) {
-      newExpanded.delete(clientId);
-      if (selectedExplorerClientId === clientId) {
-        setSelectedExplorerClientId(undefined);
-      }
-    } else {
-      newExpanded.add(clientId);
-      setSelectedExplorerClientId(clientId);
-    }
-    setExpandedClients(newExpanded);
-  };
+    const toggleClientExpansion = (clientId: string) => {
+        const newExpanded = new Set(expandedClients);
+        if (newExpanded.has(clientId)) {
+            newExpanded.delete(clientId);
+            setSelectedExplorerClientId(undefined);
+        } else {
+            newExpanded.add(clientId);
+            setSelectedExplorerClientId(clientId);
+        }
+        setExpandedClients(newExpanded);
+    };
 
   const handleDocumentUpload = (files: File[]) => {
     console.log('Uploaded files:', files);
