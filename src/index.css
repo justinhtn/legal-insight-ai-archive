@@ -380,7 +380,9 @@ All colors MUST be HSL.
 }
 
 /* Override any conflicting Tailwind classes */
-.document-viewer .h-full {
+.document-content .h-full,
+.document-viewer .h-full,
+[class*="document"] .h-full {
   height: 100vh !important;
 }
 
