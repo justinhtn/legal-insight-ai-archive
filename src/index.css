@@ -395,7 +395,7 @@ All colors MUST be HSL.
 
 /* Ensure proper text rendering in document content */
 .document-text {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'SF Pro', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
   font-size: 14px;
   line-height: 1.6;
   white-space: pre-wrap;
