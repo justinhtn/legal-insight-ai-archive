@@ -26,9 +26,9 @@ const RightPanel: React.FC<RightPanelProps> = ({
   if (!isOpen || !mode) return null;
 
   return (
-    <div className="w-80 flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
+    <div className="w-full border-l border-gray-200 bg-white flex flex-col min-h-0">
       {/* Header */}
-      <div className="h-12 px-4 border-b bg-gray-50 flex items-center justify-between">
+      <div className="h-12 px-4 border-b bg-gray-50 flex items-center justify-between flex-shrink-0">
         <h3 className="font-semibold text-gray-900">
           {mode === 'chat' ? 'Chat' : 'Client Information'}
         </h3>
@@ -43,7 +43,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {mode === 'chat' && selectedClient && (
           <GmailStyleChatPanel
             client={selectedClient}
@@ -54,7 +54,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
         )}
         
         {mode === 'client-info' && selectedClient && (
-          <div className="p-4">
+          <div className="p-4 h-full overflow-y-auto">
             <ClientInfoPanel
               client={selectedClient}
               onClientUpdated={onClientUpdated}

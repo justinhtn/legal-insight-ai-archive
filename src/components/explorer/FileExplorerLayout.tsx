@@ -76,22 +76,24 @@ const FileExplorerLayout: React.FC = () => {
       {/* Document Tabs - Show when tabs are open */}
       {openTabs.length > 0 && <DocumentTabManager />}
 
-      {/* Main Content Layout */}
-      <div className="flex flex-1 min-h-0">
+      {/* Main Content Layout - Use CSS Grid for better space distribution */}
+      <div className={`flex-1 min-h-0 ${rightPanelOpen ? 'grid grid-cols-[1fr_400px]' : 'flex'}`}>
         {/* Document Content Area */}
-        <div className={`flex-1 transition-all duration-300 ${rightPanelOpen ? 'mr-96' : ''}`}>
+        <div className="min-w-0 flex-1">
           <DocumentContent />
         </div>
 
         {/* Right Panel - Chat or Client Info */}
-        <RightPanel
-          isOpen={rightPanelOpen}
-          mode={rightPanelMode}
-          selectedClient={selectedClient || null}
-          onClose={handleCloseRightPanel}
-          onClientUpdated={handleClientUpdated}
-          onOpenDocumentWithHighlights={handleDocumentOpen}
-        />
+        {rightPanelOpen && (
+          <RightPanel
+            isOpen={rightPanelOpen}
+            mode={rightPanelMode}
+            selectedClient={selectedClient || null}
+            onClose={handleCloseRightPanel}
+            onClientUpdated={handleClientUpdated}
+            onOpenDocumentWithHighlights={handleDocumentOpen}
+          />
+        )}
       </div>
 
       {/* Upload Modal */}
