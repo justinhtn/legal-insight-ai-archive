@@ -635,6 +635,7 @@ All colors MUST be HSL.
   text-overflow: ellipsis;
   color: #424242;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .client-header.selected .client-name {
