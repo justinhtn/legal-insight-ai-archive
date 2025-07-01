@@ -298,7 +298,7 @@ All colors MUST be HSL.
   border-bottom: 5px solid #ffffff;
   padding: 0;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: scroll;
   height: 50px;
 }
 
