@@ -96,7 +96,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
         {/* Document Content - This will now scroll properly */}
         <div className="flex-1 overflow-y-auto p-6">
           <div 
-            className="prose max-w-none whitespace-pre-wrap font-mono text-sm leading-relaxed"
+            className="prose max-w-none whitespace-pre-wrap font-mono text-sm leading-relaxed document-text"
             dangerouslySetInnerHTML={{ 
               __html: highlightText(documentContent, highlights) 
             }}
