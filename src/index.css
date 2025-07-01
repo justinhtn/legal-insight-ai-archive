@@ -721,10 +721,6 @@ All colors MUST be HSL.
   overflow: hidden;
 }
 
-.main-content.chat-open {
-  margin-right: 464px;
-}
-
 .document-content {
   flex: 1;
   background: #ffffff;
