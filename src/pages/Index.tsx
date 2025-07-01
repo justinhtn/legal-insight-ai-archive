@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Upload, Search, FolderOpen, FileText, Moon, Sun, Home, Users, ChevronRight, ChevronDown, Folder, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,11 +22,146 @@ import { useDocumentTabs } from "@/hooks/useDocumentTabs";
 
 type ViewMode = 'home' | 'search' | 'explorer';
 
-const DocumentTreeContent = () => {
+interface DocumentTreeContentProps {
+  explorerClients: Client[];
+  expandedClients: Set<string>;
+  selectedExplorerClientId?: string;
+  clientFolders: any[];
+  clientDocuments: any[];
+  documentsLoading: boolean;
+  onToggleClientExpansion: (clientId: string) => void;
+  onDocumentClick: (doc: any) => void;
+}
+
+const DocumentTreeContent: React.FC<DocumentTreeContentProps> = ({
+  explorerClients,
+  expandedClients,
+  selectedExplorerClientId,
+  clientFolders,
+  clientDocuments,
+  documentsLoading,
+  onToggleClientExpansion,
+  onDocumentClick
+}) => {
+  // Group documents by folder for better organization
+  const getDocumentsByFolder = (folderId?: string) => {
+    return clientDocuments.filter(doc => doc.folder_id === folderId);
+  };
+
+  const getRootDocuments = () => {
+    return clientDocuments.filter(doc => !doc.folder_id);
+  };
+
+  return (
+    <div className="p-2">
+      <div className="explorer-section">
+        <div className="section-header">
+          <FolderOpen className="h-4 w-4" />
+          <span>Documents</span>
+        </div>
+        
+        <div className="section-items">
+          {explorerClients.map((client) => (
+            <div key={client.id} className="client-tree-item">
+              <button
+                onClick={() => onToggleClientExpansion(client.id)}
+                className="explorer-item w-full"
+              >
+                {expandedClients.has(client.id) ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronRight className="h-3 w-3" />
+                )}
+                <Folder className="h-4 w-4" />
+                <span className="truncate">{client.name}</span>
+              </button>
+              
+              {expandedClients.has(client.id) && (
+                <div className="client-tree-content">
+                  {documentsLoading && selectedExplorerClientId === client.id && (
+                    <div className="file-item">
+                      <div className="tree-indent"></div>
+                      <span className="text-muted-foreground text-sm">Loading documents...</span>
+                    </div>
+                  )}
+                  
+                  {/* Show folders with their documents */}
+                  {clientFolders.map((folder) => {
+                    const folderDocs = getDocumentsByFolder(folder.id);
+                    return (
+                      <div key={folder.id}>
+                        <div className="folder-item">
+                          <div className="tree-indent"></div>
+                          <Folder className="h-4 w-4" />
+                          <span className="truncate">{folder.name}</span>
+                        </div>
+                        {/* Documents in this folder */}
+                        {folderDocs.map((doc) => (
+                          <div 
+                            key={doc.id} 
+                            className="file-item cursor-pointer hover:bg-accent" 
+                            style={{ paddingLeft: '32px' }}
+                            onClick={() => onDocumentClick(doc)}
+                          >
+                            <div className="tree-indent"></div>
+                            <File className="h-4 w-4" />
+                            <span className="truncate">{doc.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Show root-level documents (not in any folder) */}
+                  {getRootDocuments().map((doc) => (
+                    <div 
+                      key={doc.id} 
+                      className="file-item cursor-pointer hover:bg-accent"
+                      onClick={() => onDocumentClick(doc)}
+                    >
+                      <div className="tree-indent"></div>
+                      <File className="h-4 w-4" />
+                      <span className="truncate">{doc.name}</span>
+                    </div>
+                  ))}
+                  
+                  {/* Show message if no documents found */}
+                  {!documentsLoading && selectedExplorerClientId === client.id && 
+                   clientDocuments.length === 0 && (
+                    <div className="file-item">
+                      <div className="tree-indent"></div>
+                      <span className="text-muted-foreground text-sm">No documents yet</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          
+          {explorerClients.length === 0 && (
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              No clients yet. Upload documents to get started.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Index = () => {
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string>("all");
   const [clients, setClients] = useState<Client[]>([]);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [consolidatedDocuments, setConsolidatedDocuments] = useState<ConsolidatedDocument[]>([]);
+  const [aiResponse, setAiResponse] = useState<string>("");
+  const [searchMessage, setSearchMessage] = useState<string>("");
+  const [isSearching, setIsSearching] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('home');
+  const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [selectedExplorerClientId, setSelectedExplorerClientId] = useState<string>();
   const { handleFileClick } = useDocumentTabs();
@@ -91,189 +227,11 @@ const DocumentTreeContent = () => {
   };
 
   const handleDocumentClick = async (doc: any) => {
+    console.log('Document clicked in sidebar:', doc);
     await handleFileClick(doc);
+    console.log('Setting view mode to explorer');
     setViewMode('explorer');
   };
-
-  // Group documents by folder for better organization
-  const getDocumentsByFolder = (folderId?: string) => {
-    return clientDocuments.filter(doc => doc.folder_id === folderId);
-  };
-
-  const getRootDocuments = () => {
-    return clientDocuments.filter(doc => !doc.folder_id);
-  };
-
-  return (
-    <div className="p-2">
-      <div className="explorer-section">
-        <div className="section-header">
-          <FolderOpen className="h-4 w-4" />
-          <span>Documents</span>
-        </div>
-        
-        <div className="section-items">
-          {explorerClients.map((client) => (
-            <div key={client.id} className="client-tree-item">
-              <button
-                onClick={() => toggleClientExpansion(client.id)}
-                className="explorer-item w-full"
-              >
-                {expandedClients.has(client.id) ? (
-                  <ChevronDown className="h-3 w-3" />
-                ) : (
-                  <ChevronRight className="h-3 w-3" />
-                )}
-                <Folder className="h-4 w-4" />
-                <span className="truncate">{client.name}</span>
-              </button>
-              
-              {expandedClients.has(client.id) && (
-                <div className="client-tree-content">
-                  {documentsLoading && selectedExplorerClientId === client.id && (
-                    <div className="file-item">
-                      <div className="tree-indent"></div>
-                      <span className="text-muted-foreground text-sm">Loading documents...</span>
-                    </div>
-                  )}
-                  
-                  {/* Show folders with their documents */}
-                  {clientFolders.map((folder) => {
-                    const folderDocs = getDocumentsByFolder(folder.id);
-                    return (
-                      <div key={folder.id}>
-                        <div className="folder-item">
-                          <div className="tree-indent"></div>
-                          <Folder className="h-4 w-4" />
-                          <span className="truncate">{folder.name}</span>
-                        </div>
-                        {/* Documents in this folder */}
-                        {folderDocs.map((doc) => (
-                          <div 
-                            key={doc.id} 
-                            className="file-item cursor-pointer hover:bg-accent" 
-                            style={{ paddingLeft: '32px' }}
-                            onClick={() => handleDocumentClick(doc)}
-                          >
-                            <div className="tree-indent"></div>
-                            <File className="h-4 w-4" />
-                            <span className="truncate">{doc.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                  
-                  {/* Show root-level documents (not in any folder) */}
-                  {getRootDocuments().map((doc) => (
-                    <div 
-                      key={doc.id} 
-                      className="file-item cursor-pointer hover:bg-accent"
-                      onClick={() => handleDocumentClick(doc)}
-                    >
-                      <div className="tree-indent"></div>
-                      <File className="h-4 w-4" />
-                      <span className="truncate">{doc.name}</span>
-                    </div>
-                  ))}
-                  
-                  {/* Show message if no documents found */}
-                  {!documentsLoading && selectedExplorerClientId === client.id && 
-                   clientDocuments.length === 0 && (
-                    <div className="file-item">
-                      <div className="tree-indent"></div>
-                      <span className="text-muted-foreground text-sm">No documents yet</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-          
-          {explorerClients.length === 0 && (
-            <div className="text-center py-4 text-muted-foreground text-sm">
-              No clients yet. Upload documents to get started.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const Index = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedClientId, setSelectedClientId] = useState<string>("all");
-  const [clients, setClients] = useState<Client[]>([]);
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [consolidatedDocuments, setConsolidatedDocuments] = useState<ConsolidatedDocument[]>([]);
-  const [aiResponse, setAiResponse] = useState<string>("");
-  const [searchMessage, setSearchMessage] = useState<string>("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('home');
-  const { theme, setTheme } = useTheme();
-  const { toast } = useToast();
-    const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
-    const [selectedExplorerClientId, setSelectedExplorerClientId] = useState<string>();
-
-  // Fetch clients for explorer
-  const { data: explorerClients = [] } = useQuery({
-    queryKey: ['clients'],
-    queryFn: getClients,
-    enabled: !!user,
-  });
-
-  // Fetch folders for expanded clients
-  const { data: clientFolders = [] } = useQuery({
-    queryKey: ['folders', selectedExplorerClientId],
-    queryFn: () => selectedExplorerClientId ? getFolders(selectedExplorerClientId) : Promise.resolve([]),
-    enabled: !!selectedExplorerClientId,
-  });
-
-  // Fetch documents for selected client using the correct hook
-  const { data: clientDocuments = [], isLoading: documentsLoading } = useClientDocuments(selectedExplorerClientId);
-
-  useEffect(() => {
-    // Get initial user
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      loadClients();
-    }
-  }, [user]);
-
-  const loadClients = async () => {
-    try {
-      const clientsData = await getClients();
-      setClients(clientsData);
-    } catch (error) {
-      console.error('Error loading clients:', error);
-    }
-  };
-
-    const toggleClientExpansion = (clientId: string) => {
-        const newExpanded = new Set(expandedClients);
-        if (newExpanded.has(clientId)) {
-            newExpanded.delete(clientId);
-            setSelectedExplorerClientId(undefined);
-        } else {
-            newExpanded.add(clientId);
-            setSelectedExplorerClientId(clientId);
-        }
-        setExpandedClients(newExpanded);
-    };
 
   const handleDocumentUpload = (files: File[]) => {
     console.log('Uploaded files:', files);
@@ -337,6 +295,7 @@ const Index = () => {
   };
 
   const renderContent = () => {
+    console.log('Rendering content with viewMode:', viewMode);
     switch (viewMode) {
       case 'search':
         return (
@@ -370,6 +329,7 @@ const Index = () => {
         );
       
       case 'explorer':
+        console.log('Rendering FileExplorer component');
         return <FileExplorer />;
       
       default: // home
@@ -522,7 +482,18 @@ const Index = () => {
                 </div>
 
                 {/* Legal Explorer Tree */}
-                {user && <DocumentTreeContent />}
+                {user && (
+                  <DocumentTreeContent
+                    explorerClients={explorerClients}
+                    expandedClients={expandedClients}
+                    selectedExplorerClientId={selectedExplorerClientId}
+                    clientFolders={clientFolders}
+                    clientDocuments={clientDocuments}
+                    documentsLoading={documentsLoading}
+                    onToggleClientExpansion={toggleClientExpansion}
+                    onDocumentClick={handleDocumentClick}
+                  />
+                )}
               </div>
             </SidebarContent>
           </Sidebar>
