@@ -295,9 +295,9 @@ const GmailStyleChatPanel: React.FC<GmailStyleChatPanelProps> = ({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
+    <div className="flex flex-col h-full">
+      {/* Messages Area - Takes remaining space */}
+      <div className="flex-1 min-h-0">
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">
             {filteredMessages.length === 0 && (
@@ -345,8 +345,8 @@ const GmailStyleChatPanel: React.FC<GmailStyleChatPanelProps> = ({
         </ScrollArea>
       </div>
 
-      {/* Input */}
-      <div className="p-4 border-t bg-white flex-shrink-0">
+      {/* Input Area - Fixed at bottom */}
+      <div className="border-t bg-white p-4 flex-shrink-0">
         <div className="flex gap-2 items-end">
           <Textarea
             ref={textareaRef}
@@ -355,7 +355,7 @@ const GmailStyleChatPanel: React.FC<GmailStyleChatPanelProps> = ({
             onKeyDown={handleKeyPress}
             placeholder={`Search ${client.name}'s documents...`}
             disabled={isLoading}
-            className="flex-1 resize-none min-h-[40px] max-h-[120px] overflow-y-hidden"
+            className="flex-1 resize-none min-h-[40px] max-h-[120px]"
             rows={1}
             style={{ height: '40px' }}
           />
