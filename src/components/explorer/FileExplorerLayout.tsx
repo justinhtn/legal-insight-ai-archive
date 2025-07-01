@@ -63,7 +63,7 @@ const FileExplorerLayout: React.FC = () => {
   };
 
   return (
-    <div className="app-layout">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <ExplorerHeader
         isChatOpen={rightPanelOpen && rightPanelMode === 'chat'}
@@ -76,10 +76,10 @@ const FileExplorerLayout: React.FC = () => {
       {/* Document Tabs - Show when tabs are open */}
       {openTabs.length > 0 && <DocumentTabManager />}
 
-      {/* Main Layout */}
-      <div className="main-layout">
-        {/* Document Content Area - Now takes full width since explorer is in main sidebar */}
-        <div className={`main-content ${rightPanelOpen ? 'chat-open' : ''}`}>
+      {/* Main Content Layout */}
+      <div className="flex flex-1 min-h-0">
+        {/* Document Content Area */}
+        <div className={`flex-1 transition-all duration-300 ${rightPanelOpen ? 'mr-96' : ''}`}>
           <DocumentContent />
         </div>
 
