@@ -14,6 +14,18 @@ export interface SearchResult {
   line_end?: number;
   client?: string;
   matter?: string;
+  relevance_factors?: {
+    exactPhrase: number;
+    semantic: number;
+    context: number;
+    recency: number;
+    cosine: number;
+    qualityFilters: {
+      hasMinimumMatches: boolean;
+      hasStrongSemantic: boolean;
+      hasExactPhrase: boolean;
+    };
+  };
 }
 
 export interface ConsolidatedDocument {
@@ -40,88 +52,63 @@ export interface SearchResponse {
   message?: string;
 }
 
-// Extract document references from AI response with improved parsing
-function extractDocumentReferences(aiResponse: string) {
-  console.log('Extracting document references from AI response:', aiResponse);
-  
-  // Multiple patterns to catch different reference formats
-  const patterns = [
-    /Document:\s*([^|]+)\s*\|\s*Section:\s*([^|]+)\s*\|\s*Lines:\s*([^\n\r.]+)/gi,
-    /Document:\s*([^|]+)\s*\|\s*Page\s*(\d+)/gi,
-    /\(([^)]+\.(?:pdf|doc|docx|txt))[^)]*\)/gi, // Match (filename.ext) patterns
-    /according to ([^,.\n]+\.(?:pdf|doc|docx|txt))/gi // Match "according to filename" patterns
-  ];
-  
-  const references = [];
-  
-  patterns.forEach(pattern => {
-    let match;
-    while ((match = pattern.exec(aiResponse)) !== null) {
-      if (pattern.source.includes('Document:')) {
-        references.push({
-          document: match[1]?.trim(),
-          section: match[2]?.trim(),
-          lines: match[3]?.trim()
-        });
-      } else if (pattern.source.includes('Page')) {
-        references.push({
-          document: match[1]?.trim(),
-          page: match[2]?.trim()
-        });
-      } else {
-        references.push({
-          document: match[1]?.trim()
-        });
-      }
-    }
-  });
-  
-  console.log('Extracted references:', references);
-  return references;
-}
-
-// Advanced query relevance calculation based on semantic matching
-function calculateSemanticRelevance(content: string, userQuery: string, aiResponse: string): number {
-  console.log('Calculating semantic relevance for:', { contentPreview: content.substring(0, 100), userQuery });
-  
+// Enhanced relevance scoring for client-side filtering
+function calculateClientSideRelevance(content: string, userQuery: string, aiResponse: string): number {
   const queryLower = userQuery.toLowerCase();
   const contentLower = content.toLowerCase();
   const aiResponseLower = aiResponse.toLowerCase();
   
   let relevanceScore = 0;
   
-  // 1. Direct answer correlation - check if content contains answers mentioned in AI response
+  // 1. AI response correlation - check if content contains answers mentioned in AI response (40% weight)
   const aiKeyPhrases = extractKeyPhrasesFromAI(aiResponse);
   aiKeyPhrases.forEach(phrase => {
     if (contentLower.includes(phrase.toLowerCase())) {
-      relevanceScore += 0.4; // High weight for AI-mentioned content
+      relevanceScore += 0.4;
     }
   });
   
-  // 2. Question-specific matching
-  const questionWords = extractQuestionWords(queryLower);
-  questionWords.forEach(word => {
-    if (contentLower.includes(word)) {
-      relevanceScore += 0.2;
-    }
-  });
-  
-  // 3. Context matching - look for related terms
-  const contextTerms = getContextTerms(queryLower);
-  contextTerms.forEach(term => {
+  // 2. Direct query matching (30% weight)
+  const meaningfulQueryTerms = extractMeaningfulTerms(queryLower);
+  let matchedTerms = 0;
+  meaningfulQueryTerms.forEach(term => {
     if (contentLower.includes(term)) {
-      relevanceScore += 0.1;
+      matchedTerms++;
     }
   });
   
-  // 4. Exact phrase matching
-  if (contentLower.includes(queryLower)) {
-    relevanceScore += 0.3;
+  if (meaningfulQueryTerms.length > 0) {
+    const matchRatio = matchedTerms / meaningfulQueryTerms.length;
+    relevanceScore += matchRatio * 0.3;
   }
   
-  const finalScore = Math.min(relevanceScore, 1.0);
-  console.log('Calculated relevance score:', finalScore);
-  return finalScore;
+  // 3. Exact phrase matching (30% weight)
+  if (contentLower.includes(queryLower)) {
+    relevanceScore += 0.3;
+  } else {
+    // Check for partial phrase matches
+    const queryPhrases = queryLower.split(/\s+/).filter(w => w.length > 3);
+    let phraseMatches = 0;
+    queryPhrases.forEach(phrase => {
+      if (contentLower.includes(phrase)) {
+        phraseMatches++;
+      }
+    });
+    if (queryPhrases.length > 0) {
+      relevanceScore += (phraseMatches / queryPhrases.length) * 0.15;
+    }
+  }
+  
+  return Math.min(relevanceScore, 1.0);
+}
+
+// Extract meaningful terms (exclude common words)
+function extractMeaningfulTerms(query: string): string[] {
+  const commonWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'what', 'were', 'is', 'are', 'was', 'how', 'when', 'where', 'who', 'which', 'document', 'documents', 'contract', 'case']);
+  
+  return query.split(/\s+/)
+    .filter(word => word.length > 2 && !commonWords.has(word))
+    .map(word => word.replace(/[^\w]/g, ''));
 }
 
 // Extract key phrases that the AI mentioned in its response
@@ -149,36 +136,7 @@ function extractKeyPhrasesFromAI(aiResponse: string): string[] {
   return phrases.filter(phrase => phrase.length > 2);
 }
 
-// Extract meaningful words from the user's question
-function extractQuestionWords(query: string): string[] {
-  const stopWords = ['what', 'were', 'the', 'is', 'are', 'was', 'how', 'when', 'where', 'who', 'which', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'];
-  return query.split(/\s+/)
-    .filter(word => word.length > 2 && !stopWords.includes(word))
-    .map(word => word.replace(/[^\w]/g, ''));
-}
-
-// Get context terms related to the query
-function getContextTerms(query: string): string[] {
-  const contextMap = {
-    'age': ['minor', 'child', 'years', 'old', 'born', 'birth'],
-    'minor': ['child', 'children', 'custody', 'age', 'years'],
-    'child': ['minor', 'custody', 'age', 'support', 'children'],
-    'contract': ['agreement', 'terms', 'clause', 'provision'],
-    'payment': ['money', 'amount', 'fee', 'cost', 'price'],
-    'date': ['when', 'time', 'signed', 'executed']
-  };
-  
-  const terms = [];
-  Object.keys(contextMap).forEach(key => {
-    if (query.includes(key)) {
-      terms.push(...contextMap[key]);
-    }
-  });
-  
-  return terms;
-}
-
-// Generate targeted highlights based on AI response correlation - UPDATED
+// Generate targeted highlights based on AI response correlation with enhanced filtering
 function generateAnswerBasedHighlights(userQuery: string, aiResponse: string, chunks: SearchResult[]): Array<{
   page?: number;
   text: string;
@@ -188,93 +146,31 @@ function generateAnswerBasedHighlights(userQuery: string, aiResponse: string, ch
 }> {
   console.log('Generating answer-based highlights for AI response:', aiResponse.substring(0, 100));
   
-  // Use the new answer matching service
+  // Use the enhanced answer matching service
   const relevantSentences = findRelevantSentences(chunks, aiResponse, 3);
   console.log('Found relevant sentences:', relevantSentences.length);
   
-  return relevantSentences.map(sentence => ({
-    page: sentence.page,
-    text: sentence.text,
-    lines: sentence.lines,
-    section: sentence.section,
-    queryRelevance: sentence.relevanceScore
-  }));
-}
-
-// Extract the most relevant part of content based on query and AI response
-function extractMostRelevantText(content: string, userQuery: string, aiResponse: string): string {
-  const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
-  
-  // Score each sentence
-  const scoredSentences = sentences.map(sentence => ({
-    text: sentence.trim(),
-    relevance: calculateSemanticRelevance(sentence, userQuery, aiResponse)
-  }))
-  .filter(s => s.relevance > 0.1)
-  .sort((a, b) => b.relevance - a.relevance);
-  
-  // Return the most relevant sentence(s)
-  if (scoredSentences.length > 0) {
-    const topSentences = scoredSentences.slice(0, 2);
-    return topSentences.map(s => s.text).join('. ');
-  }
-  
-  // Fallback to first part of content
-  return content.substring(0, 200) + (content.length > 200 ? '...' : '');
-}
-
-// Detect section information from content
-function detectSection(content: string): string | undefined {
-  // Look for various section patterns
-  const patterns = [
-    /(?:Section|SECTION)\s*(\d+(?:\.\d+)?)\s*:?\s*([^.\n]+)/i,
-    /(?:Article|ARTICLE)\s*(\d+(?:\.\d+)?)\s*:?\s*([^.\n]+)/i,
-    /(?:Part|PART)\s*(\w+)\s*:?\s*([^.\n]+)/i,
-    /^\s*(\d+\.\s*[A-Z][^.\n]+)/m // Numbered headings
-  ];
-  
-  for (const pattern of patterns) {
-    const match = content.match(pattern);
-    if (match) {
-      if (match[2]) {
-        return `${match[1]}: ${match[2].trim()}`;
-      } else {
-        return match[1].trim();
-      }
-    }
-  }
-  
-  return undefined;
-}
-
-function extractKeyPhrases(content: string, pageNumber?: number, lineStart?: number, lineEnd?: number) {
-  // Split content into sentences and take the most relevant ones
-  const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 20);
-  
-  // Extract section information if available
-  const sectionMatch = content.match(/(?:Section|SECTION)\s*(\d+(?:\.\d+)?)\s*:?\s*([^.\n]+)/i);
-  const section = sectionMatch ? `Section ${sectionMatch[1]}: ${sectionMatch[2].trim()}` : undefined;
-  
-  // For now, take the first 2 sentences as key phrases
-  const keyPhrases = sentences.slice(0, 2).map(sentence => ({
-    page: pageNumber,
-    text: sentence.trim(),
-    lines: lineStart && lineEnd ? `${lineStart}-${lineEnd}` : undefined,
-    section: section
-  }));
-
-  return keyPhrases;
+  // Filter for high-quality highlights only
+  return relevantSentences
+    .filter(sentence => sentence.relevanceScore >= 0.6) // 60% threshold for highlights
+    .map(sentence => ({
+      page: sentence.page,
+      text: sentence.text,
+      lines: sentence.lines,
+      section: sentence.section,
+      queryRelevance: sentence.relevanceScore
+    }));
 }
 
 function calculateRelevanceLevel(scores: number[]): 'High' | 'Medium' | 'Low' {
   const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-  if (avg > 0.6) return 'High';
-  if (avg > 0.3) return 'Medium';
+  if (avg >= 0.8) return 'High';
+  if (avg >= 0.7) return 'Medium';
   return 'Low';
 }
 
 function consolidateSearchResults(chunks: SearchResult[], userQuery: string = '', aiResponse: string = ''): ConsolidatedDocument[] {
-  console.log('Consolidating search results with answer-based highlighting');
+  console.log('Consolidating search results with enhanced relevance filtering');
   
   const documentMap = new Map<string, {
     document_id: string;
@@ -286,7 +182,10 @@ function consolidateSearchResults(chunks: SearchResult[], userQuery: string = ''
     relevance_scores: number[];
   }>();
 
-  chunks.forEach(chunk => {
+  // Only process chunks with high relevance (70%+ from backend)
+  const highRelevanceChunks = chunks.filter(chunk => chunk.similarity >= 0.7);
+  
+  highRelevanceChunks.forEach(chunk => {
     const docId = chunk.document_id;
     
     if (!documentMap.has(docId)) {
@@ -306,18 +205,21 @@ function consolidateSearchResults(chunks: SearchResult[], userQuery: string = ''
   });
 
   // Convert to array and calculate relevance with answer-based highlights
-  return Array.from(documentMap.values()).map(doc => {
-    const docChunks = chunks.filter(chunk => chunk.document_id === doc.document_id);
-    const answerBasedHighlights = userQuery && aiResponse 
-      ? generateAnswerBasedHighlights(userQuery, aiResponse, docChunks)
-      : extractKeyPhrases(docChunks[0]?.content || '', docChunks[0]?.page_number, docChunks[0]?.line_start, docChunks[0]?.line_end);
-    
-    return {
-      ...doc,
-      relevance: calculateRelevanceLevel(doc.relevance_scores),
-      excerpts: answerBasedHighlights.slice(0, 3) // Top 3 most relevant excerpts
-    };
-  });
+  return Array.from(documentMap.values())
+    .filter(doc => doc.relevance_scores.length > 0) // Ensure we have data
+    .map(doc => {
+      const docChunks = highRelevanceChunks.filter(chunk => chunk.document_id === doc.document_id);
+      const answerBasedHighlights = userQuery && aiResponse 
+        ? generateAnswerBasedHighlights(userQuery, aiResponse, docChunks)
+        : [];
+      
+      return {
+        ...doc,
+        relevance: calculateRelevanceLevel(doc.relevance_scores),
+        excerpts: answerBasedHighlights.slice(0, 2) // Top 2 most relevant excerpts only
+      };
+    })
+    .filter(doc => doc.excerpts.length > 0); // Only return documents with quality highlights
 }
 
 export const generateClientContext = async (client: Client): Promise<string> => {
@@ -399,10 +301,26 @@ You can organize documents by uploading them to specific folders.`;
   }
 
   const results = data.results || [];
-  const consolidated_documents = consolidateSearchResults(results, query, data.ai_response);
+  
+  // Additional client-side filtering for extra quality assurance
+  const highQualityResults = results.filter(result => {
+    // Ensure backend scoring was applied
+    if (result.similarity < 0.7) return false;
+    
+    // Additional content quality checks
+    if (result.content.length < 50) return false; // Minimum content length
+    
+    // Check for meaningful content vs just common words
+    const meaningfulWords = extractMeaningfulTerms(result.content.toLowerCase());
+    if (meaningfulWords.length < 3) return false;
+    
+    return true;
+  });
+
+  const consolidated_documents = consolidateSearchResults(highQualityResults, query, data.ai_response);
 
   return {
-    results,
+    results: highQualityResults,
     consolidated_documents,
     ai_response: data.ai_response,
     message: data.message

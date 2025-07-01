@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -116,19 +117,39 @@ serve(async (req) => {
       )
     }
 
-    // Calculate similarities and get top results
+    // Calculate similarities with enhanced multi-factor scoring
     const results = embeddings
       .map(embedding => {
-        const similarity = cosineSimilarity(queryEmbedding, embedding.embedding)
+        const cosineSim = cosineSimilarity(queryEmbedding, embedding.embedding)
+        const enhancedScore = calculateEnhancedRelevanceScore(embedding.content, query, cosineSim)
+        
         return {
           ...embedding,
-          similarity
+          similarity: enhancedScore.totalScore,
+          relevanceFactors: enhancedScore.factors
         }
       })
+      .filter(result => result.similarity >= 0.7) // Strict 70% threshold
       .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 12) // Reduce to top 12 for better performance
+      .slice(0, 8) // Reduce to top 8 for better quality
 
-    console.log(`Found ${results.length} document chunks for RAG analysis`)
+    console.log(`Found ${results.length} high-relevance document chunks for RAG analysis`)
+
+    if (results.length === 0) {
+      const lowQualityMessage = "I couldn't find documents with strong relevance to your query. Try rephrasing your question or asking about different topics covered in your documents."
+      
+      return new Response(
+        JSON.stringify({ 
+          results: [],
+          ai_response: lowQualityMessage,
+          message: 'No highly relevant documents found'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      )
+    }
 
     // Prepare enhanced context for OpenAI with metadata
     const documentContext = results.map((result, index) => {
@@ -142,6 +163,7 @@ serve(async (req) => {
 Title: ${result.documents.title}
 File: ${result.documents.file_name}
 Location: ${pageInfo} | ${lineInfo}
+Relevance Score: ${(result.similarity * 100).toFixed(1)}%
 Content: "${result.content}"
 ---`;
     }).join('\n\n');
@@ -165,14 +187,14 @@ Content: "${result.content}"
 ${client_context ? `Current Client Context:\n${client_context}\n` : ''}
 
 CRITICAL INSTRUCTIONS FOR DOCUMENT REFERENCES:
-1. You MUST base your answer EXACTLY on the document content provided
+1. You MUST base your answer EXACTLY on the high-relevance document content provided (all documents have 70%+ relevance scores)
 2. When citing specific information, quote the EXACT text from the documents
 3. Use this EXACT format when referencing documents: "Document: [filename] | Section: [section] | Lines: [range]"
 4. NEVER make up information not found in the provided documents
 5. If asked about specific details (names, ages, dates, amounts), quote them EXACTLY as they appear
 
 RESPONSE REQUIREMENTS:
-1. SCAN for the EXACT answer in the documents
+1. SCAN for the EXACT answer in the highly relevant documents
 2. Quote directly from documents when citing specific facts
 3. Give the MOST DIRECT answer possible - usually 1-2 sentences
 4. Do NOT add boilerplate phrases like "If you require further details..."
@@ -181,21 +203,9 @@ RESPONSE REQUIREMENTS:
 7. ALWAYS base your answer on the actual document content provided
 8. Stay consistent with the client context - this is a ${client_context?.match(/Case Type: ([^\n]+)/)?.[1] || 'legal'} case
 
-EXACT CITATION EXAMPLES:
-When you find information like "EMMA JOHNSON, age 7" in a document, your response should quote this EXACTLY.
-When you find "The contract was signed on January 15, 2025", quote this EXACTLY.
+Only reference documents that are truly relevant to the query. These documents have been pre-filtered for high relevance.
 
-Examples:
-Q: "What were the ages of the two minors?"
-A: "EMMA JOHNSON, age 7 - JACOB JOHNSON, age 5"
-
-Q: "What is the contract amount?"
-A: "$50,000 as stated in Section 3.2"
-
-Q: "When was the agreement signed?"
-A: "January 15, 2025"
-
-Document excerpts are provided below with their titles and location information.`;
+Document excerpts are provided below with their titles, location information, and relevance scores.`;
 
     // Generate enhanced RAG response using OpenAI with improved system prompt
     console.log(`Generating RAG response with ${model}...`)
@@ -216,14 +226,14 @@ Document excerpts are provided below with their titles and location information.
             role: 'user',
             content: `Query: ${query}
 
-Document Excerpts:
+High-Relevance Document Excerpts (70%+ relevance):
 ${documentContext}
 
-Provide a direct, concise answer based on these documents. When citing information, use the EXACT format: Document: [filename] | Section: [section] | Lines: [range]`
+Provide a direct, concise answer based on these highly relevant documents. When citing information, use the EXACT format: Document: [filename] | Section: [section] | Lines: [range]`
           }
         ],
         temperature: 0.1,
-        max_tokens: 400 // Limit response length for conciseness
+        max_tokens: 400
       }),
     })
 
@@ -236,10 +246,10 @@ Provide a direct, concise answer based on these documents. When citing informati
     const chatData = await chatResponse.json()
     const aiResponse = chatData.choices[0].message.content
 
-    // Return enhanced response with detailed source documents
+    // Return enhanced response with high-quality source documents
     const sourceDocuments = results
-      .filter(result => result.similarity > 0.2)
-      .slice(0, 6) // Top 6 sources
+      .filter(result => result.similarity > 0.7) // Ensure 70%+ relevance
+      .slice(0, 5) // Top 5 sources
       .map(result => {
         const metadata = result.metadata || {};
         return {
@@ -253,15 +263,16 @@ Provide a direct, concise answer based on these documents. When citing informati
           line_start: result.line_start,
           line_end: result.line_end,
           client: metadata.client,
-          matter: metadata.matter
+          matter: metadata.matter,
+          relevance_factors: result.relevanceFactors
         };
       });
 
     const contextMessage = client_id 
-      ? `AI analysis based on ${sourceDocuments.length} relevant document sections from selected client`
-      : `AI analysis based on ${sourceDocuments.length} relevant document sections across all clients`
+      ? `AI analysis based on ${sourceDocuments.length} high-relevance document sections (70%+ match) from selected client`
+      : `AI analysis based on ${sourceDocuments.length} high-relevance document sections (70%+ match) across all clients`
 
-    console.log(`Generated RAG response with ${sourceDocuments.length} source documents`)
+    console.log(`Generated RAG response with ${sourceDocuments.length} high-relevance source documents`)
 
     return new Response(
       JSON.stringify({ 
@@ -286,6 +297,120 @@ Provide a direct, concise answer based on these documents. When citing informati
     )
   }
 })
+
+// Enhanced multi-factor relevance scoring function
+function calculateEnhancedRelevanceScore(content: string, query: string, cosineSimilarity: number) {
+  const contentLower = content.toLowerCase();
+  const queryLower = query.toLowerCase();
+  
+  // Extract meaningful query terms (exclude common words)
+  const commonWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now', 'document', 'documents', 'contract', 'agreement', 'case', 'legal']);
+  
+  const queryTerms = queryLower.split(/\s+/)
+    .filter(term => term.length > 2 && !commonWords.has(term));
+  
+  if (queryTerms.length === 0) {
+    return { totalScore: cosineSimilarity, factors: { cosine: cosineSimilarity } };
+  }
+
+  // 1. Exact phrase matching (40% weight)
+  let exactPhraseScore = 0;
+  const queryPhrases = extractMeaningfulPhrases(queryLower);
+  queryPhrases.forEach(phrase => {
+    if (contentLower.includes(phrase)) {
+      exactPhraseScore += 0.8;
+    }
+  });
+  exactPhraseScore = Math.min(exactPhraseScore, 1.0);
+
+  // 2. Semantic similarity from embeddings (35% weight)
+  const semanticScore = cosineSimilarity;
+
+  // 3. Context relevance - concentrated vs scattered matches (20% weight)
+  let contextScore = 0;
+  let matchesFound = 0;
+  let totalMatches = 0;
+  
+  queryTerms.forEach(term => {
+    const regex = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+    const matches = (contentLower.match(regex) || []).length;
+    if (matches > 0) {
+      matchesFound++;
+      totalMatches += matches;
+    }
+  });
+  
+  if (queryTerms.length > 0) {
+    const matchRatio = matchesFound / queryTerms.length;
+    const concentrationBonus = totalMatches > matchesFound ? 0.2 : 0;
+    contextScore = matchRatio + concentrationBonus;
+  }
+
+  // 4. Document recency (5% weight) - placeholder for now
+  const recencyScore = 0.5;
+
+  // Calculate weighted total
+  const totalScore = (
+    exactPhraseScore * 0.40 +
+    semanticScore * 0.35 +
+    contextScore * 0.20 +
+    recencyScore * 0.05
+  );
+
+  // Quality filters - require minimum meaningful matches
+  const hasMinimumMatches = matchesFound >= Math.min(2, Math.ceil(queryTerms.length * 0.5));
+  const hasStrongSemantic = semanticScore >= 0.6;
+  const hasExactPhrase = exactPhraseScore >= 0.3;
+
+  // Apply penalty if quality thresholds aren't met
+  let finalScore = totalScore;
+  if (!hasMinimumMatches && !hasStrongSemantic && !hasExactPhrase) {
+    finalScore *= 0.5; // Significant penalty for weak matches
+  }
+
+  return {
+    totalScore: Math.min(finalScore, 1.0),
+    factors: {
+      exactPhrase: exactPhraseScore,
+      semantic: semanticScore,
+      context: contextScore,
+      recency: recencyScore,
+      cosine: cosineSimilarity,
+      qualityFilters: {
+        hasMinimumMatches,
+        hasStrongSemantic,
+        hasExactPhrase
+      }
+    }
+  };
+}
+
+// Extract meaningful phrases from query
+function extractMeaningfulPhrases(query: string): string[] {
+  const phrases = [];
+  
+  // Split by common delimiters and extract phrases of 2+ words
+  const segments = query.split(/[,;.!?]/).map(s => s.trim()).filter(s => s.length > 0);
+  
+  segments.forEach(segment => {
+    const words = segment.split(/\s+/).filter(w => w.length > 2);
+    
+    // Extract 2-3 word phrases
+    for (let i = 0; i < words.length - 1; i++) {
+      phrases.push(words.slice(i, i + 2).join(' '));
+      if (i < words.length - 2) {
+        phrases.push(words.slice(i, i + 3).join(' '));
+      }
+    }
+    
+    // Add full segment if it's meaningful
+    if (words.length >= 2 && words.length <= 5) {
+      phrases.push(segment);
+    }
+  });
+  
+  return [...new Set(phrases)]; // Remove duplicates
+}
 
 // Helper function to calculate cosine similarity
 function cosineSimilarity(a: number[], b: number[]): number {
