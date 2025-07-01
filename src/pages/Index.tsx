@@ -442,7 +442,7 @@ const IndexContent = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
-        <Sidebar className="w-80 bg-explorer-background border-r">
+        <Sidebar className="w-64 bg-explorer-background border-r flex-shrink-0">
           <SidebarContent className="p-0">
             <div className="explorer-header">
               <div className="flex items-center justify-between px-4 py-3">
