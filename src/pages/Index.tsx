@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Upload, Search, FolderOpen, FileText, Moon, Sun, Home, Users, ChevronRight, ChevronDown, Folder, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,7 @@ import FileExplorer from "@/components/FileExplorer";
 import DocumentUploadModal from "@/components/DocumentUploadModal";
 import { searchDocuments, ConsolidatedDocument } from "@/services/searchService";
 import { getClients, getFolders, Client } from "@/services/clientService";
-import { getDocuments } from "@/services/documentService";
+import { useClientDocuments } from "@/hooks/useClientDocuments";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
@@ -50,12 +49,8 @@ const Index = () => {
     enabled: !!selectedExplorerClientId,
   });
 
-  // Fetch documents for selected folder
-  const { data: folderDocuments = [] } = useQuery({
-    queryKey: ['documents', selectedExplorerClientId],
-    queryFn: () => selectedExplorerClientId ? getDocuments(selectedExplorerClientId) : Promise.resolve([]),
-    enabled: !!selectedExplorerClientId,
-  });
+  // Fetch documents for selected client using the correct hook
+  const { data: clientDocuments = [], isLoading: documentsLoading } = useClientDocuments(selectedExplorerClientId);
 
   useEffect(() => {
     // Get initial user
@@ -304,6 +299,15 @@ const Index = () => {
     }
   };
 
+  // Group documents by folder for better organization
+  const getDocumentsByFolder = (folderId?: string) => {
+    return clientDocuments.filter(doc => doc.folder_id === folderId);
+  };
+
+  const getRootDocuments = () => {
+    return clientDocuments.filter(doc => !doc.folder_id);
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -372,21 +376,52 @@ const Index = () => {
                           
                           {expandedClients.has(client.id) && (
                             <div className="client-tree-content">
-                              {clientFolders.map((folder) => (
-                                <div key={folder.id} className="folder-item">
+                              {documentsLoading && selectedExplorerClientId === client.id && (
+                                <div className="file-item">
                                   <div className="tree-indent"></div>
-                                  <Folder className="h-4 w-4" />
-                                  <span className="truncate">{folder.name}</span>
+                                  <span className="text-muted-foreground text-sm">Loading documents...</span>
                                 </div>
-                              ))}
+                              )}
                               
-                              {folderDocuments.map((doc) => (
+                              {/* Show folders with their documents */}
+                              {clientFolders.map((folder) => {
+                                const folderDocs = getDocumentsByFolder(folder.id);
+                                return (
+                                  <div key={folder.id}>
+                                    <div className="folder-item">
+                                      <div className="tree-indent"></div>
+                                      <Folder className="h-4 w-4" />
+                                      <span className="truncate">{folder.name}</span>
+                                    </div>
+                                    {/* Documents in this folder */}
+                                    {folderDocs.map((doc) => (
+                                      <div key={doc.id} className="file-item" style={{ paddingLeft: '32px' }}>
+                                        <div className="tree-indent"></div>
+                                        <File className="h-4 w-4" />
+                                        <span className="truncate">{doc.name}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })}
+                              
+                              {/* Show root-level documents (not in any folder) */}
+                              {getRootDocuments().map((doc) => (
                                 <div key={doc.id} className="file-item">
                                   <div className="tree-indent"></div>
                                   <File className="h-4 w-4" />
                                   <span className="truncate">{doc.name}</span>
                                 </div>
                               ))}
+                              
+                              {/* Show message if no documents found */}
+                              {!documentsLoading && selectedExplorerClientId === client.id && 
+                               clientDocuments.length === 0 && (
+                                <div className="file-item">
+                                  <div className="tree-indent"></div>
+                                  <span className="text-muted-foreground text-sm">No documents yet</span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
