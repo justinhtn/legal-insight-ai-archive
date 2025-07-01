@@ -25,7 +25,7 @@ const SidebarPanel: React.FC<SidebarPanelProps> = ({
   onNewFolder
 }) => {
   return (
-    <div className="w-80 border-r bg-gray-50 flex flex-col">
+    <div className="w-50 border-r bg-gray-50 flex flex-col">
       <div className="p-4 border-b bg-white">
         <h2 className="font-semibold text-lg truncate" title={clientName}>
           {clientName}
