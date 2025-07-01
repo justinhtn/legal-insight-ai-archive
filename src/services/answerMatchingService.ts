@@ -1,3 +1,4 @@
+
 import { SearchResult } from './searchService';
 
 export interface AnswerEntity {
@@ -15,31 +16,28 @@ export interface AnswerRelevantSentence {
   section?: string;
 }
 
-// Enhanced entity extraction with better precision
+// Extract specific entities and facts from AI response
 export function extractAnswerEntities(aiResponse: string): AnswerEntity[] {
   const entities: AnswerEntity[] = [];
   
-  // Extract names with better precision (avoid false positives)
-  const nameMatches = aiResponse.match(/\b([A-Z][a-z]{2,}\s+[A-Z][A-Z]+(?:\s*,?\s*(?:age|aged)?\s*\d+)?)\b/g);
+  // Extract names (capitalized words, often with middle initials)
+  const nameMatches = aiResponse.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]*)*\s+[A-Z][A-Z]+(?:\s*,?\s*(?:age|aged)?\s*\d+)?/gi);
   if (nameMatches) {
     nameMatches.forEach(match => {
-      const cleanName = match.replace(/\s*,?\s*(?:age|aged)?\s*\d+/gi, '').trim();
-      if (cleanName.length > 3 && !isCommonWord(cleanName)) {
-        entities.push({
-          type: 'name',
-          value: cleanName,
-          context: match
-        });
-      }
+      entities.push({
+        type: 'name',
+        value: match.replace(/\s*,?\s*(?:age|aged)?\s*\d+/gi, '').trim(),
+        context: match
+      });
     });
   }
   
-  // Extract ages with better context
+  // Extract ages specifically
   const ageMatches = aiResponse.match(/(?:age|aged)\s*:?\s*(\d+)|(\d+)\s*(?:years?\s*old)/gi);
   if (ageMatches) {
     ageMatches.forEach(match => {
       const ageNumber = match.match(/\d+/)?.[0];
-      if (ageNumber && parseInt(ageNumber) > 0 && parseInt(ageNumber) < 150) {
+      if (ageNumber) {
         entities.push({
           type: 'age',
           value: ageNumber,
@@ -49,7 +47,7 @@ export function extractAnswerEntities(aiResponse: string): AnswerEntity[] {
     });
   }
   
-  // Extract dates with enhanced patterns
+  // Extract dates
   const dateMatches = aiResponse.match(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}-\d{2}-\d{2}/gi);
   if (dateMatches) {
     dateMatches.forEach(match => {
@@ -61,42 +59,24 @@ export function extractAnswerEntities(aiResponse: string): AnswerEntity[] {
     });
   }
   
-  // Extract amounts with better validation
-  const amountMatches = aiResponse.match(/\$[\d,]+(?:\.\d{2})?/g);
+  // Extract amounts/numbers
+  const amountMatches = aiResponse.match(/\$[\d,]+(?:\.\d{2})?|\b\d+(?:,\d{3})*(?:\.\d+)?\b/g);
   if (amountMatches) {
     amountMatches.forEach(match => {
-      const amount = parseFloat(match.replace(/[$,]/g, ''));
-      if (amount > 0) {
-        entities.push({
-          type: 'amount',
-          value: match,
-          context: match
-        });
-      }
+      entities.push({
+        type: match.startsWith('$') ? 'amount' : 'number',
+        value: match,
+        context: match
+      });
     });
   }
   
-  // Extract meaningful numbers (not just any number)
-  const numberMatches = aiResponse.match(/\b(?:contract|case|client|matter)\s*(?:number|#|no\.?)\s*:?\s*([A-Z0-9-]+)|\b(\d{4,})\b/gi);
-  if (numberMatches) {
-    numberMatches.forEach(match => {
-      const numberValue = match.match(/([A-Z0-9-]+|\d{4,})$/i)?.[1];
-      if (numberValue && numberValue.length >= 4) {
-        entities.push({
-          type: 'number',
-          value: numberValue,
-          context: match
-        });
-      }
-    });
-  }
-  
-  // Extract case/client references
+  // Extract case numbers, client numbers, etc.
   const referenceMatches = aiResponse.match(/(?:case|client|matter|file)\s*(?:number|#|no\.?)\s*:?\s*([A-Z0-9-]+)/gi);
   if (referenceMatches) {
     referenceMatches.forEach(match => {
       const refValue = match.match(/([A-Z0-9-]+)$/i)?.[1];
-      if (refValue && refValue.length >= 3) {
+      if (refValue) {
         entities.push({
           type: 'reference',
           value: refValue,
@@ -109,13 +89,7 @@ export function extractAnswerEntities(aiResponse: string): AnswerEntity[] {
   return entities;
 }
 
-// Helper function to check if a word is too common to be meaningful
-function isCommonWord(word: string): boolean {
-  const commonWords = new Set(['THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HER', 'WAS', 'ONE', 'OUR', 'HAD', 'BY', 'WORD', 'BUT', 'WHAT', 'SOME', 'IS', 'IT', 'YOU', 'OR', 'HAD', 'THE', 'OF', 'TO', 'AND', 'A', 'IN', 'IS', 'IT', 'YOU', 'THAT', 'HE', 'WAS', 'FOR', 'ON', 'ARE', 'AS', 'WITH', 'HIS', 'THEY', 'I', 'AT', 'BE', 'THIS', 'HAVE', 'FROM', 'OR', 'ONE', 'HAD', 'BY', 'WORD', 'BUT', 'NOT', 'WHAT', 'ALL', 'WERE', 'WE', 'WHEN', 'YOUR', 'CAN', 'SAID', 'THERE', 'EACH', 'WHICH', 'SHE', 'DO', 'HOW', 'THEIR', 'IF', 'WILL', 'UP', 'OTHER', 'ABOUT', 'OUT', 'MANY', 'THEN', 'THEM', 'THESE', 'SO', 'SOME', 'HER', 'WOULD', 'MAKE', 'LIKE', 'INTO', 'HIM', 'HAS', 'TWO', 'MORE', 'GO', 'NO', 'WAY', 'COULD', 'MY', 'THAN', 'FIRST', 'BEEN', 'CALL', 'WHO', 'OIL', 'ITS', 'NOW', 'FIND', 'LONG', 'DOWN', 'DAY', 'DID', 'GET', 'COME', 'MADE', 'MAY', 'PART']);
-  return commonWords.has(word.toUpperCase());
-}
-
-// Enhanced sentence relevance finding with stricter scoring
+// Find document sentences that contain the AI's cited information
 export function findRelevantSentences(
   chunks: SearchResult[],
   aiResponse: string,
@@ -127,68 +101,58 @@ export function findRelevantSentences(
   const allSentences: AnswerRelevantSentence[] = [];
   
   chunks.forEach(chunk => {
-    // Only process high-relevance chunks
-    if (chunk.similarity < 0.7) return;
-    
-    // Split content into sentences with better parsing
+    // Split content into sentences
     const sentences = chunk.content
       .split(/[.!?]+/)
-      .filter(s => s.trim().length > 30) // Minimum sentence length
+      .filter(s => s.trim().length > 20)
       .map(s => s.trim());
     
     sentences.forEach(sentence => {
       const matchedEntities: AnswerEntity[] = [];
       let relevanceScore = 0;
       
-      // Check each entity against the sentence with enhanced scoring
+      // Check each entity against the sentence
       entities.forEach(entity => {
         const entityRegex = new RegExp(entity.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
         if (entityRegex.test(sentence)) {
           matchedEntities.push(entity);
-          // Enhanced scoring based on entity type and context
+          // Higher score for more specific entity types
           switch (entity.type) {
-            case 'name': 
-              relevanceScore += sentence.toLowerCase().includes(entity.value.toLowerCase()) ? 0.5 : 0.3;
-              break;
-            case 'age': 
-              relevanceScore += 0.4;
-              break;
-            case 'date': 
-              relevanceScore += 0.4;
-              break;
-            case 'amount': 
-              relevanceScore += 0.35;
-              break;
-            case 'reference': 
-              relevanceScore += 0.45;
-              break;
-            case 'number': 
-              relevanceScore += 0.25;
-              break;
+            case 'name': relevanceScore += 0.4; break;
+            case 'age': relevanceScore += 0.3; break;
+            case 'date': relevanceScore += 0.3; break;
+            case 'amount': relevanceScore += 0.25; break;
+            case 'reference': relevanceScore += 0.35; break;
+            case 'number': relevanceScore += 0.2; break;
           }
         }
       });
       
-      // Enhanced semantic similarity with AI response
-      const semanticScore = calculateSemanticSimilarity(sentence, aiResponse);
-      relevanceScore += semanticScore * 0.3;
+      // Also check for semantic similarity with AI response
+      const aiResponseLower = aiResponse.toLowerCase();
+      const sentenceLower = sentence.toLowerCase();
       
-      // Boost score for exact quoted content from AI response
-      const quotedContent = aiResponse.match(/"([^"]+)"/g);
-      if (quotedContent) {
-        quotedContent.forEach(quote => {
-          const cleanQuote = quote.replace(/"/g, '');
-          if (cleanQuote.length > 10 && sentence.toLowerCase().includes(cleanQuote.toLowerCase())) {
-            relevanceScore += 0.6; // High boost for exact quotes
+      // Boost score if sentence contains key phrases from AI response
+      const aiPhrases = aiResponseLower.match(/"([^"]+)"/g);
+      if (aiPhrases) {
+        aiPhrases.forEach(phrase => {
+          const cleanPhrase = phrase.replace(/"/g, '');
+          if (sentenceLower.includes(cleanPhrase)) {
+            relevanceScore += 0.3;
           }
         });
       }
       
-      // Only include sentences with high relevance score and meaningful matches
-      if (relevanceScore > 0.6 || matchedEntities.length >= 2) {
+      // Check for word overlap
+      const aiWords = aiResponseLower.split(/\s+/).filter(w => w.length > 3);
+      const sentenceWords = sentenceLower.split(/\s+/);
+      const overlap = aiWords.filter(word => sentenceWords.includes(word)).length;
+      relevanceScore += (overlap / aiWords.length) * 0.2;
+      
+      if (relevanceScore > 0.1 || matchedEntities.length > 0) {
         allSentences.push({
           text: sentence,
-          relevanceScore: Math.min(relevanceScore, 1.0),
+          relevanceScore,
           matchedEntities,
           page: chunk.page_number,
           lines: chunk.line_start && chunk.line_end ? `${chunk.line_start}-${chunk.line_end}` : undefined,
@@ -198,38 +162,10 @@ export function findRelevantSentences(
     });
   });
   
-  // Sort by relevance score and return only high-quality sentences
+  // Sort by relevance score and return top sentences
   return allSentences
-    .filter(sentence => sentence.relevanceScore >= 0.6) // Strict 60% threshold
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
     .slice(0, maxSentences);
-}
-
-// Enhanced semantic similarity calculation
-function calculateSemanticSimilarity(sentence: string, aiResponse: string): number {
-  const sentenceLower = sentence.toLowerCase();
-  const aiResponseLower = aiResponse.toLowerCase();
-  
-  // Extract meaningful words from both texts
-  const sentenceWords = extractMeaningfulWords(sentenceLower);
-  const aiWords = extractMeaningfulWords(aiResponseLower);
-  
-  if (sentenceWords.length === 0 || aiWords.length === 0) return 0;
-  
-  // Calculate word overlap ratio
-  const commonWords = sentenceWords.filter(word => aiWords.includes(word));
-  const similarity = commonWords.length / Math.max(sentenceWords.length, aiWords.length);
-  
-  return similarity;
-}
-
-// Extract meaningful words (exclude common/stop words)
-function extractMeaningfulWords(text: string): string[] {
-  const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now', 'document', 'documents', 'contract', 'agreement', 'case', 'legal']);
-  
-  return text.split(/\s+/)
-    .filter(word => word.length > 2 && !stopWords.has(word))
-    .map(word => word.replace(/[^\w]/g, ''));
 }
 
 // Detect section information from content
@@ -255,7 +191,7 @@ function detectSection(content: string): string | undefined {
   return undefined;
 }
 
-// Enhanced answer similarity calculation
+// Calculate how well a sentence matches the AI's actual answer
 export function calculateAnswerSimilarity(sentence: string, aiResponse: string): number {
   const entities = extractAnswerEntities(aiResponse);
   let similarity = 0;
@@ -264,19 +200,15 @@ export function calculateAnswerSimilarity(sentence: string, aiResponse: string):
     const entityRegex = new RegExp(entity.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
     if (entityRegex.test(sentence)) {
       switch (entity.type) {
-        case 'name': similarity += 0.5; break;
-        case 'age': similarity += 0.4; break;
-        case 'date': similarity += 0.4; break;
-        case 'amount': similarity += 0.35; break;
-        case 'reference': similarity += 0.45; break;
-        case 'number': similarity += 0.25; break;
+        case 'name': similarity += 0.4; break;
+        case 'age': similarity += 0.3; break;
+        case 'date': similarity += 0.3; break;
+        case 'amount': similarity += 0.25; break;
+        case 'reference': similarity += 0.35; break;
+        case 'number': similarity += 0.2; break;
       }
     }
   });
-  
-  // Add semantic similarity component
-  const semanticScore = calculateSemanticSimilarity(sentence, aiResponse);
-  similarity += semanticScore * 0.3;
   
   return Math.min(similarity, 1.0);
 }
