@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, ChevronDown, Folder, File, Star, Users, Tag } from 'lucide-react';
 import { getClients, getFolders } from '@/services/clientService';
-import { getDocuments } from '@/services/documentService';
 import { useFileExplorer } from '@/contexts/FileExplorerContext';
 import { useDocumentTabs } from '@/hooks/useDocumentTabs';
+import { useClientDocuments } from '@/hooks/useClientDocuments';
 
 interface UnifiedExplorerProps {
   collapsed?: boolean;
@@ -174,52 +174,17 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
                 
                 <div className="group-items">
                   {activeClients.map((client) => (
-                    <div key={client.id} className="client-entry">
-                      <div 
-                        className={`client-header ${selectedClientId === client.id ? 'selected' : ''}`}
-                        onClick={() => toggleClient(client.id)}
-                      >
-                        {expandedClients[client.id] ? 
-                          <ChevronDown className="h-4 w-4 disclosure-icon" /> : 
-                          <ChevronRight className="h-4 w-4 disclosure-icon" />
-                        }
-                        <Users className="h-4 w-4 client-icon" />
-                        <span className="client-name">{client.name}</span>
-                      </div>
-                      
-                      {expandedClients[client.id] && (
-                        <div className="client-files">
-                          {folders
-                            .filter(folder => folder.client_id === client.id)
-                            .map((folder) => (
-                              <div key={folder.id} className="folder-item" onClick={() => toggleFolder(folder.id)}>
-                                {expandedFolders[folder.id] ? 
-                                  <ChevronDown className="h-4 w-4 disclosure-icon" /> : 
-                                  <ChevronRight className="h-4 w-4 disclosure-icon" />
-                                }
-                                <Folder className="h-4 w-4 folder-icon" />
-                                <span className="file-name">{folder.name}</span>
-                                <span className="file-count">(files)</span>
-                              </div>
-                            ))
-                          }
-                          
-                          {/* Sample files - replace with actual file data */}
-                          <div 
-                            className="file-item"
-                            onClick={() => handleFileClick({ 
-                              id: `${client.id}-sample`, 
-                              name: 'sample-divorce-petition.txt',
-                              type: 'file'
-                            })}
-                          >
-                            <div className="file-indent"></div>
-                            <File className="h-4 w-4 file-icon" />
-                            <span className="file-name">sample-divorce-petition.txt</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <ClientExplorerItem 
+                      key={client.id}
+                      client={client}
+                      folders={folders}
+                      isExpanded={expandedClients[client.id]}
+                      isSelected={selectedClientId === client.id}
+                      onToggle={() => toggleClient(client.id)}
+                      onFolderClick={toggleFolder}
+                      onFileClick={handleFileClick}
+                      expandedFolders={expandedFolders}
+                    />
                   ))}
                 </div>
               </div>
@@ -282,6 +247,104 @@ const UnifiedExplorer: React.FC<UnifiedExplorerProps> = ({
           )}
         </div>
       </div>
+    </div>
+  );
+};
+
+// New component to handle individual client items with real document data
+interface ClientExplorerItemProps {
+  client: any;
+  folders: any[];
+  isExpanded: boolean;
+  isSelected: boolean;
+  onToggle: () => void;
+  onFolderClick: (folderId: string) => void;
+  onFileClick: (file: any) => void;
+  expandedFolders: Record<string, boolean>;
+}
+
+const ClientExplorerItem: React.FC<ClientExplorerItemProps> = ({
+  client,
+  folders,
+  isExpanded,
+  isSelected,
+  onToggle,
+  onFolderClick,
+  onFileClick,
+  expandedFolders
+}) => {
+  const { data: documents = [], isLoading } = useClientDocuments(client.id);
+  
+  // Get root-level documents (not in folders)
+  const rootDocuments = documents.filter(doc => !doc.folder_id);
+  
+  return (
+    <div className="client-entry">
+      <div 
+        className={`client-header ${isSelected ? 'selected' : ''}`}
+        onClick={onToggle}
+      >
+        {isExpanded ? 
+          <ChevronDown className="h-4 w-4 disclosure-icon" /> : 
+          <ChevronRight className="h-4 w-4 disclosure-icon" />
+        }
+        <Users className="h-4 w-4 client-icon" />
+        <span className="client-name">{client.name}</span>
+      </div>
+      
+      {isExpanded && (
+        <div className="client-files">
+          {isLoading ? (
+            <div className="file-item">
+              <div className="file-indent"></div>
+              <span className="file-name text-gray-500">Loading documents...</span>
+            </div>
+          ) : (
+            <>
+              {/* Show folders */}
+              {folders
+                .filter(folder => folder.client_id === client.id)
+                .map((folder) => (
+                  <div key={folder.id} className="folder-item" onClick={() => onFolderClick(folder.id)}>
+                    {expandedFolders[folder.id] ? 
+                      <ChevronDown className="h-4 w-4 disclosure-icon" /> : 
+                      <ChevronRight className="h-4 w-4 disclosure-icon" />
+                    }
+                    <Folder className="h-4 w-4 folder-icon" />
+                    <span className="file-name">{folder.name}</span>
+                    <span className="file-count">(files)</span>
+                  </div>
+                ))
+              }
+              
+              {/* Show root-level documents */}
+              {rootDocuments.map((document) => (
+                <div 
+                  key={document.id}
+                  className="file-item"
+                  onClick={() => onFileClick({ 
+                    id: document.id, 
+                    name: document.name,
+                    type: 'file'
+                  })}
+                >
+                  <div className="file-indent"></div>
+                  <File className="h-4 w-4 file-icon" />
+                  <span className="file-name">{document.name}</span>
+                </div>
+              ))}
+              
+              {/* Show message if no documents */}
+              {rootDocuments.length === 0 && folders.filter(f => f.client_id === client.id).length === 0 && (
+                <div className="file-item">
+                  <div className="file-indent"></div>
+                  <span className="file-name text-gray-500">No documents</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
