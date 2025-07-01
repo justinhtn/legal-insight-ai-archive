@@ -296,52 +296,31 @@ const Index = () => {
               <div className="space-y-2">
                 <Button 
                   variant={viewMode === 'home' ? 'default' : 'outline'}
-                  className="w-full justify-start"
+                  size="icon"
                   onClick={() => setViewMode('home')}
+                  title="Dashboard"
                 >
-                  <Home className="mr-2 h-4 w-4" />
-                  Dashboard
+                  <Home className="h-4 w-4" />
                 </Button>
                 <Button 
                   variant={viewMode === 'explorer' ? 'default' : 'ghost'}
-                  className="w-full justify-start text-sm"
+                  size="icon"
                   onClick={() => setViewMode('explorer')}
                   disabled={!user}
+                  title="Manage Files & Clients"
                 >
-                  <FolderOpen className="mr-2 h-4 w-4" />
-                  Manage Files & Clients
+                  <FolderOpen className="h-4 w-4" />
                 </Button>
                 <Button 
                   variant="ghost" 
-                  className="w-full justify-start text-sm"
+                  size="icon"
                   onClick={() => setIsUploadOpen(true)}
                   disabled={!user}
+                  title="Upload Documents"
                 >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Documents
+                  <Upload className="h-4 w-4" />
                 </Button>
               </div>
-
-              {user && clients.length > 0 && (
-                <div className="pt-4 border-t">
-                  <h3 className="text-sm font-medium mb-2">Quick Access</h3>
-                  <div className="space-y-1">
-                    {clients.slice(0, 3).map(client => (
-                      <Button 
-                        key={client.id}
-                        variant="ghost" 
-                        className="w-full justify-start text-sm"
-                        onClick={() => {
-                          setSelectedClientId(client.id);
-                          setViewMode('explorer');
-                        }}
-                      >
-                        📁 {client.name}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </SidebarContent>
         </Sidebar>
