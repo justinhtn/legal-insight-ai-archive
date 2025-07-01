@@ -1,11 +1,11 @@
+
 import { useState, useEffect } from "react";
-import { Upload, Search, FolderOpen, FileText, Moon, Sun, Home, Users, Star, Tag, ChevronRight, ChevronDown, Folder, File } from "lucide-react";
+import { Upload, Search, FolderOpen, FileText, Moon, Sun, Home, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useTheme } from "next-themes";
 import { supabase } from "@/integrations/supabase/client";
 import AuthButton from "@/components/AuthButton";
@@ -13,10 +13,8 @@ import SearchResults from "@/components/SearchResults";
 import FileExplorer from "@/components/FileExplorer";
 import DocumentUploadModal from "@/components/DocumentUploadModal";
 import { searchDocuments, ConsolidatedDocument } from "@/services/searchService";
-import { getClients, getFolders, Client } from "@/services/clientService";
+import { getClients, Client } from "@/services/clientService";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
-import { useClientDocuments } from "@/hooks/useClientDocuments";
 
 type ViewMode = 'home' | 'search' | 'explorer';
 
@@ -31,30 +29,8 @@ const Index = () => {
   const [searchMessage, setSearchMessage] = useState<string>("");
   const [isSearching, setIsSearching] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('home');
-  const [expandedSections, setExpandedSections] = useState({
-    favorites: true,
-    activeClients: true,
-    pendingClients: false,
-    closedClients: false,
-    tags: false
-  });
-  const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
-
-  // Fetch clients for the sidebar
-  const { data: allClients = [] } = useQuery({
-    queryKey: ['clients'],
-    queryFn: getClients,
-    enabled: !!user,
-  });
-
-  // Fetch folders for selected client
-  const { data: folders = [] } = useQuery({
-    queryKey: ['folders', selectedClientId],
-    queryFn: () => selectedClientId && selectedClientId !== "all" ? getFolders(selectedClientId) : Promise.resolve([]),
-    enabled: !!selectedClientId && selectedClientId !== "all",
-  });
 
   useEffect(() => {
     // Get initial user
@@ -83,45 +59,6 @@ const Index = () => {
     } catch (error) {
       console.error('Error loading clients:', error);
     }
-  };
-
-  // Categorize clients
-  const activeClients = allClients.filter(client => 
-    !client.matter_type || 
-    !['closed', 'completed', 'settled'].some(status => 
-      client.matter_type?.toLowerCase().includes(status)
-    )
-  );
-  
-  const pendingClients = allClients.filter(client => 
-    client.matter_type?.toLowerCase().includes('pending') || 
-    client.matter_type?.toLowerCase().includes('review')
-  );
-  
-  const closedClients = allClients.filter(client => 
-    client.matter_type && 
-    ['closed', 'completed', 'settled'].some(status => 
-      client.matter_type?.toLowerCase().includes(status)
-    )
-  );
-
-  const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
-
-  const toggleClient = (clientId: string) => {
-    setExpandedClients(prev => ({
-      ...prev,
-      [clientId]: !prev[clientId]
-    }));
-  };
-
-  const selectClient = (clientId: string) => {
-    setSelectedClientId(clientId);
-    setViewMode('explorer');
   };
 
   const handleDocumentUpload = (files: File[]) => {
@@ -356,7 +293,6 @@ const Index = () => {
                 </Button>
               </div>
               
-              {/* Main Navigation */}
               <div className="space-y-2">
                 <Button 
                   variant={viewMode === 'home' ? 'default' : 'outline'}
@@ -365,6 +301,15 @@ const Index = () => {
                 >
                   <Home className="mr-2 h-4 w-4" />
                   Dashboard
+                </Button>
+                <Button 
+                  variant={viewMode === 'explorer' ? 'default' : 'ghost'}
+                  className="w-full justify-start text-sm"
+                  onClick={() => setViewMode('explorer')}
+                  disabled={!user}
+                >
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  Manage Files & Clients
                 </Button>
                 <Button 
                   variant="ghost" 
@@ -377,162 +322,24 @@ const Index = () => {
                 </Button>
               </div>
 
-              {/* Legal Explorer Sections */}
-              {user && (
-                <div className="pt-4 border-t space-y-2">
-                  {/* Favorites Section */}
-                  <Collapsible 
-                    open={expandedSections.favorites} 
-                    onOpenChange={() => toggleSection('favorites')}
-                  >
-                    <CollapsibleTrigger className="w-full">
-                      <div className="flex items-center px-2 py-1 text-sm font-medium hover:bg-accent rounded-md">
-                        {expandedSections.favorites ? 
-                          <ChevronDown className="h-4 w-4 mr-2" /> : 
-                          <ChevronRight className="h-4 w-4 mr-2" />
-                        }
-                        <Star className="h-4 w-4 mr-2" />
-                        <span className="flex-1 text-left">FAVORITES</span>
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="pl-8 space-y-1 text-sm">
-                        <div className="flex items-center py-1 text-muted-foreground">
-                          <Star className="h-3 w-3 mr-2" />
-                          Recent Cases
-                        </div>
-                        <div className="flex items-center py-1 text-muted-foreground">
-                          <File className="h-3 w-3 mr-2" />
-                          Pinned Documents
-                        </div>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  {/* Active Clients Section */}
-                  <Collapsible 
-                    open={expandedSections.activeClients} 
-                    onOpenChange={() => toggleSection('activeClients')}
-                  >
-                    <CollapsibleTrigger className="w-full">
-                      <div className="flex items-center px-2 py-1 text-sm font-medium hover:bg-accent rounded-md">
-                        {expandedSections.activeClients ? 
-                          <ChevronDown className="h-4 w-4 mr-2" /> : 
-                          <ChevronRight className="h-4 w-4 mr-2" />
-                        }
-                        <Users className="h-4 w-4 mr-2" />
-                        <span className="flex-1 text-left">ACTIVE CLIENTS</span>
-                        <span className="text-xs text-muted-foreground">({activeClients.length})</span>
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="pl-8 space-y-1">
-                        {activeClients.map((client) => (
-                          <ClientItem 
-                            key={client.id}
-                            client={client}
-                            isExpanded={expandedClients[client.id]}
-                            onToggle={() => toggleClient(client.id)}
-                            onSelect={() => selectClient(client.id)}
-                            folders={folders.filter(f => f.client_id === client.id)}
-                          />
-                        ))}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  {/* Pending Clients Section */}
-                  <Collapsible 
-                    open={expandedSections.pendingClients} 
-                    onOpenChange={() => toggleSection('pendingClients')}
-                  >
-                    <CollapsibleTrigger className="w-full">
-                      <div className="flex items-center px-2 py-1 text-sm font-medium hover:bg-accent rounded-md">
-                        {expandedSections.pendingClients ? 
-                          <ChevronDown className="h-4 w-4 mr-2" /> : 
-                          <ChevronRight className="h-4 w-4 mr-2" />
-                        }
-                        <Folder className="h-4 w-4 mr-2" />
-                        <span className="flex-1 text-left">PENDING CLIENTS</span>
-                        <span className="text-xs text-muted-foreground">({pendingClients.length})</span>
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="pl-8 space-y-1">
-                        {pendingClients.map((client) => (
-                          <div 
-                            key={client.id}
-                            className="flex items-center py-1 text-sm cursor-pointer hover:bg-accent rounded-md px-2"
-                            onClick={() => selectClient(client.id)}
-                          >
-                            <Users className="h-3 w-3 mr-2" />
-                            {client.name}
-                          </div>
-                        ))}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  {/* Closed Clients Section */}
-                  <Collapsible 
-                    open={expandedSections.closedClients} 
-                    onOpenChange={() => toggleSection('closedClients')}
-                  >
-                    <CollapsibleTrigger className="w-full">
-                      <div className="flex items-center px-2 py-1 text-sm font-medium hover:bg-accent rounded-md">
-                        {expandedSections.closedClients ? 
-                          <ChevronDown className="h-4 w-4 mr-2" /> : 
-                          <ChevronRight className="h-4 w-4 mr-2" />
-                        }
-                        <Folder className="h-4 w-4 mr-2" />
-                        <span className="flex-1 text-left">CLOSED CLIENTS</span>
-                        <span className="text-xs text-muted-foreground">({closedClients.length})</span>
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="pl-8 space-y-1">
-                        {closedClients.map((client) => (
-                          <div 
-                            key={client.id}
-                            className="flex items-center py-1 text-sm cursor-pointer hover:bg-accent rounded-md px-2"
-                            onClick={() => selectClient(client.id)}
-                          >
-                            <Users className="h-3 w-3 mr-2" />
-                            {client.name}
-                          </div>
-                        ))}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  {/* Tags Section */}
-                  <Collapsible 
-                    open={expandedSections.tags} 
-                    onOpenChange={() => toggleSection('tags')}
-                  >
-                    <CollapsibleTrigger className="w-full">
-                      <div className="flex items-center px-2 py-1 text-sm font-medium hover:bg-accent rounded-md">
-                        {expandedSections.tags ? 
-                          <ChevronDown className="h-4 w-4 mr-2" /> : 
-                          <ChevronRight className="h-4 w-4 mr-2" />
-                        }
-                        <Tag className="h-4 w-4 mr-2" />
-                        <span className="flex-1 text-left">TAGS</span>
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="pl-8 space-y-1 text-sm">
-                        <div className="flex items-center py-1 text-muted-foreground">
-                          <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-                          Urgent <span className="ml-auto text-xs">(5)</span>
-                        </div>
-                        <div className="flex items-center py-1 text-muted-foreground">
-                          <div className="w-2 h-2 rounded-full bg-yellow-500 mr-2"></div>
-                          Review Needed <span className="ml-auto text-xs">(12)</span>
-                        </div>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
+              {user && clients.length > 0 && (
+                <div className="pt-4 border-t">
+                  <h3 className="text-sm font-medium mb-2">Quick Access</h3>
+                  <div className="space-y-1">
+                    {clients.slice(0, 3).map(client => (
+                      <Button 
+                        key={client.id}
+                        variant="ghost" 
+                        className="w-full justify-start text-sm"
+                        onClick={() => {
+                          setSelectedClientId(client.id);
+                          setViewMode('explorer');
+                        }}
+                      >
+                        📁 {client.name}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -597,67 +404,6 @@ const Index = () => {
         />
       </div>
     </SidebarProvider>
-  );
-};
-
-// Client Item Component for the sidebar
-interface ClientItemProps {
-  client: Client;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onSelect: () => void;
-  folders: any[];
-}
-
-const ClientItem: React.FC<ClientItemProps> = ({ client, isExpanded, onToggle, onSelect, folders }) => {
-  const { data: documents = [] } = useClientDocuments(client.id);
-  
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center text-sm">
-        <button
-          onClick={onToggle}
-          className="flex items-center flex-1 py-1 hover:bg-accent rounded-md px-2"
-        >
-          {isExpanded ? 
-            <ChevronDown className="h-3 w-3 mr-2" /> : 
-            <ChevronRight className="h-3 w-3 mr-2" />
-          }
-          <Users className="h-3 w-3 mr-2" />
-          <span className="truncate">{client.name}</span>
-        </button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onSelect}
-          className="ml-2 h-6 text-xs"
-        >
-          Open
-        </Button>
-      </div>
-      
-      {isExpanded && (
-        <div className="pl-8 space-y-1">
-          {folders.map((folder) => (
-            <div key={folder.id} className="flex items-center py-1 text-xs text-muted-foreground">
-              <Folder className="h-3 w-3 mr-2" />
-              {folder.name}
-            </div>
-          ))}
-          {documents.slice(0, 3).map((doc) => (
-            <div key={doc.id} className="flex items-center py-1 text-xs text-muted-foreground">
-              <File className="h-3 w-3 mr-2" />
-              <span className="truncate">{doc.name}</span>
-            </div>
-          ))}
-          {documents.length > 3 && (
-            <div className="text-xs text-muted-foreground pl-5">
-              +{documents.length - 3} more files
-            </div>
-          )}
-        </div>
-      )}
-    </div>
   );
 };
 

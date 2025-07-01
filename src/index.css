@@ -1,78 +1,89 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --foreground: 222.2 84% 4.9%;
+
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 222.2 84% 4.9%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 9% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 10% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
     --radius: 0.5rem;
+
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 9% 9%;
+    --sidebar-primary: 240 5.9% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 240 5.9% 90%;
-    --sidebar-ring: 240 10% 3.9%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 9% 9%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 0 0% 98%;
-    --sidebar-primary-foreground: 240 9% 9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 240 4.9% 83.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
@@ -80,66 +91,806 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Open Sans', 'Helvetica Neue', sans-serif;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  html {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Consistent typography scale */
+  h1 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+
+  h2 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+
+  h3 {
+    @apply text-lg font-medium tracking-tight;
+  }
+
+  h4 {
+    @apply text-base font-medium;
+  }
+
+  /* Consistent spacing for panels */
+  .panel-content {
+    @apply p-4;
+  }
+
+  .panel-header {
+    @apply px-4 py-3 border-b border-border bg-background;
+  }
+
+  /* Browser-like tab styling */
+  .browser-tab {
+    @apply px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border-b-2 border-transparent hover:border-muted-foreground/30 transition-colors;
+  }
+
+  .browser-tab.active {
+    @apply text-foreground border-primary;
+  }
+
+  /* Consistent button spacing */
+  .toolbar {
+    @apply flex items-center space-x-2;
+  }
+
+  /* Consistent sidebar styling */
+  .sidebar-section {
+    @apply space-y-1;
+  }
+
+  .sidebar-item {
+    @apply px-3 py-2 text-sm rounded-sm transition-colors;
+  }
+
+  .sidebar-item:hover {
+    @apply bg-accent text-accent-foreground;
+  }
+
+  .sidebar-item.active {
+    @apply bg-primary text-primary-foreground;
   }
 }
 
-/* File Explorer Layout */
+/* Custom scrollbar styling for consistency */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Smooth transitions for all interactive elements */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Browser-like document tabs - Chrome Light Mode Style */
+.document-tabs {
+  display: flex;
+  align-items: flex-end;
+  background: #f1f3f4;
+  border-bottom: 5px solid #ffffff;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 50px;
+}
+
+.document-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  margin: 0;
+  background: #f1f3f4;
+  border: none;
+  border-radius: 12px 12px 12px 12px !important;
+  color: #5f6368;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  max-width: 240px;
+  min-width: 120px;
+  height: 40px;
+  white-space: nowrap;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.document-tab:hover:not(.active) {
+  background: #e8eaed;
+  color: #3c4043;
+}
+
+.document-tab.active {
+  background: #ffffff;
+  color: #202124;
+  font-weight: 500;
+  border-bottom: 1px solid #ffffff;
+  border-radius: 12px 12px 0px 0px !important;
+  z-index: 1;
+}
+
+/* Active tab bottom border override */
+.document-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #ffffff;
+  z-index: 2;
+}
+
+.document-tab .tab-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.document-tab .tab-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* CRITICAL: Close button fix - This is the main fix for your issue */
+.document-tab .close-button {
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 50% !important;
+  border: none !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 12px !important;
+  color: #5f6368 !important;
+  flex-shrink: 0 !important;
+  margin-left: 8px !important;
+  transition: all 0.15s ease !important;
+  z-index: 10 !important;
+  position: relative !important;
+  pointer-events: auto !important;
+}
+
+.document-tab .close-button:hover {
+  background: #dadce0 !important;
+  color: #202124 !important;
+}
+
+.document-tab.active .close-button {
+  color: #5f6368 !important;
+}
+
+.document-tab.active .close-button:hover {
+  background: #e8eaed !important;
+  color: #202124 !important;
+}
+
+/* Make sure the X icon doesn't block clicks */
+.document-tab .close-button svg {
+  pointer-events: none !important;
+  width: 12px !important;
+  height: 12px !important;
+}
+
+/* Tailwind class overrides for close button */
+.document-tab button[class*="close-button"] {
+  all: unset !important;
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  transition: background-color 0.15s ease !important;
+  z-index: 10 !important;
+  position: relative !important;
+  margin-left: 8px !important;
+}
+
+.document-tab button[class*="close-button"]:hover {
+  background: #dadce0 !important;
+}
+
+/* Tab separator lines between inactive tabs */
+.document-tab:not(.active):not(:hover) + .document-tab:not(.active):not(:hover)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: #dadce0;
+}
+
+/* Remove separator for active tabs or when hovering */
+.document-tab.active + .document-tab::before,
+.document-tab + .document-tab.active::before,
+.document-tab:hover + .document-tab::before,
+.document-tab + .document-tab:hover::before {
+  display: none;
+}
+
+/* Hide close button on narrow screens */
+@media (max-width: 1200px) {
+  .document-tab {
+    min-width: 100px;
+  }
+  
+  .document-tab .close-button {
+    display: none !important;
+  }
+  
+  .document-tab:hover .close-button {
+    display: flex !important;
+  }
+}
+
+/* Scrollbar for tab overflow */
+.document-tabs::-webkit-scrollbar {
+  height: 0;
+}
+
+/* Focus states for accessibility */
+.document-tab:focus {
+  outline: 2px solid #4285f4;
+  outline-offset: -2px;
+}
+
+.document-tab .close-button:focus {
+  outline: 2px solid #4285f4 !important;
+  outline-offset: -1px !important;
+}
+
+/* Chat Panel Component Override */
+.chat-panel .h-full {
+  height: 100vh !important;
+}
+
+.chat-panel .flex-1 {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.chat-panel [data-radix-scroll-area-viewport] {
+  height: 100% !important;
+}
+
+/* Unified Explorer Styles - Finder/VS Code inspired */
 .app-layout {
-  @apply h-screen flex flex-col;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #ffffff;
+  overflow: hidden;
 }
 
 .main-layout {
-  @apply flex flex-1 overflow-hidden;
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
 }
 
+.unified-explorer {
+  width: 350px;
+  background: #fafafa;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-shadow: 0 0 10px rgba(0,0,0,0.05);
+  transition: width 0.3s ease;
+  flex-shrink: 0;
+}
+
+.unified-explorer.collapsed {
+  width: 48px;
+}
+
+.explorer-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f5f5f5;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+
+.explorer-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #424242;
+  letter-spacing: 0.5px;
+}
+
+.collapse-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: #757575;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.collapse-btn:hover {
+  background-color: #e8e8e8;
+  color: #424242;
+}
+
+.explorer-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  min-height: 0;
+}
+
+.explorer-section {
+  margin-bottom: 16px;
+}
+
+.section-header {
+  padding: 6px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #757575;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+}
+
+.section-header.clickable {
+  cursor: pointer;
+  border-radius: 0;
+  transition: all 0.2s ease;
+}
+
+.section-header.clickable:hover {
+  background-color: #f0f0f0;
+}
+
+.disclosure-icon {
+  transition: transform 0.2s ease;
+  color: #757575;
+}
+
+.section-icon {
+  color: #5d4037;
+}
+
+.section-title {
+  flex: 1;
+}
+
+.section-items {
+  padding-left: 0;
+}
+
+.explorer-item {
+  padding: 4px 16px 4px 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #424242;
+  transition: all 0.2s ease;
+  height: 28px;
+}
+
+.explorer-item:hover {
+  background-color: #f0f0f0;
+}
+
+.item-icon {
+  color: #616161;
+  flex-shrink: 0;
+}
+
+.item-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-count {
+  font-size: 11px;
+  color: #9e9e9e;
+  background: #eeeeee;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.client-group {
+  margin-bottom: 4px;
+}
+
+.group-header {
+  padding: 4px 16px 4px 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #424242;
+  transition: all 0.2s ease;
+  height: 28px;
+}
+
+.group-header:hover {
+  background-color: #f0f0f0;
+}
+
+.group-icon {
+  color: #795548;
+  flex-shrink: 0;
+}
+
+.group-title {
+  flex: 1;
+  font-weight: 500;
+}
+
+.group-count {
+  font-size: 11px;
+  color: #9e9e9e;
+}
+
+.group-items {
+  padding-left: 0;
+}
+
+.client-entry {
+  margin: 0;
+}
+
+.client-header {
+  padding: 4px 16px 4px 48px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #424242;
+  transition: all 0.2s ease;
+  position: relative;
+  height: 28px;
+}
+
+.client-header:hover {
+  background-color: #f0f0f0;
+}
+
+.client-header.selected {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.client-header.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: #1976d2;
+}
+
+.client-icon {
+  color: #1976d2;
+  flex-shrink: 0;
+}
+
+.client-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #424242;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.client-header.selected .client-name {
+  color: #1976d2;
+}
+
+.client-files {
+  padding-left: 0;
+}
+
+.folder-item, .file-item {
+  padding: 3px 16px 3px 64px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  height: 24px;
+  position: relative;
+}
+
+.folder-item:hover, .file-item:hover {
+  background-color: #f0f0f0;
+}
+
+.folder-icon {
+  color: #795548;
+  flex-shrink: 0;
+}
+
+.file-icon {
+  color: #757575;
+  flex-shrink: 0;
+}
+
+.file-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #424242;
+}
+
+.file-count {
+  font-size: 11px;
+  color: #9e9e9e;
+}
+
+.file-indent {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+/* Tag indicators */
+.tag-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tag-indicator.urgent {
+  background-color: #f44336;
+}
+
+.tag-indicator.review {
+  background-color: #ff9800;
+}
+
+.tag-indicator.completed {
+  background-color: #4caf50;
+}
+
+/* Document Content Styles */
 .main-content {
-  @apply flex-1 overflow-hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
   transition: margin-right 0.3s ease;
+  overflow: hidden;
 }
 
-.main-content.full-width {
-  @apply w-full;
+.document-content {
+  flex: 1;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 
-.main-content.chat-open {
-  margin-right: 400px;
+/* Welcome Screen */
+.welcome-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Document Tabs */
-.document-tabs {
-  @apply border-b bg-background;
+.welcome-content {
+  text-align: center;
+  max-width: 400px;
 }
 
-.tabs-container {
-  @apply flex items-center;
+.welcome-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #424242;
+  margin-bottom: 8px;
 }
 
-.tab-button {
-  @apply flex items-center px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 hover:text-gray-700 cursor-pointer;
+.welcome-subtitle {
+  font-size: 16px;
+  color: #757575;
+  margin-bottom: 32px;
 }
 
-.tab-button.active {
-  @apply border-blue-500 text-blue-600;
+.welcome-features {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.overview-tab {
-  @apply bg-gray-50;
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: #757575;
 }
 
-.tab-icon {
-  @apply w-4 h-4 mr-2;
+/* Client Overview */
+.content-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+  flex-shrink: 0;
 }
 
-.tab-name {
-  @apply max-w-32 truncate;
+.client-overview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-.tab-close {
-  @apply ml-2 hover:bg-gray-200 rounded p-1;
+.client-avatar {
+  width: 48px;
+  height: 48px;
+  background: #e3f2fd;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.tab-close:hover {
-  @apply bg-gray-200;
+.client-details h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #424242;
+  margin: 0 0 4px 0;
+}
+
+.client-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  color: #757575;
+}
+
+.content-body {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.overview-card {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.card-header h3 {
+  font-size: 16px;
+  font-weight: 500;
+  color: #424242;
+  margin: 0;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-number {
+  font-size: 24px;
+  font-weight: 600;
+  color: #424242;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #757575;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.activity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #757575;
+}
+
+.activity-file {
+  font-weight: 500;
+  color: #424242;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.detail-label {
+  color: #757575;
+}
+
+.detail-value {
+  color: #424242;
+  font-weight: 500;
 }

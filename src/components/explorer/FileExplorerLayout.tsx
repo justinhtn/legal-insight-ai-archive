@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import UnifiedExplorer from './UnifiedExplorer';
 import DocumentContent from './DocumentContent';
 import DocumentTabManager from './DocumentTabManager';
 import ExplorerHeader from './ExplorerHeader';
@@ -16,9 +17,10 @@ const FileExplorerLayout: React.FC = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightPanelMode, setRightPanelMode] = useState<'chat' | 'client-info' | null>(null);
+  const [explorerCollapsed, setExplorerCollapsed] = useState(false);
   
-  const { selectedClientId, selectedFolderId, showOverview, openTabs } = useFileExplorer();
-  const { handleDocumentOpen } = useDocumentTabs();
+  const { selectedClientId, selectedFolderId } = useFileExplorer();
+  const { openTabs, handleDocumentOpen } = useDocumentTabs();
 
   // Get selected client data
   const { data: clients = [], refetch: refetchClients } = useQuery({
@@ -94,9 +96,6 @@ const FileExplorerLayout: React.FC = () => {
     toast.info('Client creation feature coming soon');
   };
 
-  // Always show overview tab
-  const shouldShowTabs = true;
-
   return (
     <div className="app-layout">
       {/* Header */}
@@ -108,13 +107,19 @@ const FileExplorerLayout: React.FC = () => {
         selectedClientName={selectedClient?.name}
       />
 
-      {/* Document Tabs - Always show with overview tab */}
-      {shouldShowTabs && <DocumentTabManager />}
+      {/* Document Tabs - Show when tabs are open */}
+      {openTabs.length > 0 && <DocumentTabManager />}
 
       {/* Main Layout */}
       <div className="main-layout">
-        {/* Document Content Area - Full width since explorer is now in sidebar */}
-        <div className={`main-content full-width ${rightPanelOpen ? 'chat-open' : ''}`}>
+        {/* Unified Explorer Panel */}
+        <UnifiedExplorer
+          collapsed={explorerCollapsed}
+          onToggleCollapsed={() => setExplorerCollapsed(!explorerCollapsed)}
+        />
+
+        {/* Document Content Area */}
+        <div className={`main-content ${rightPanelOpen ? 'chat-open' : ''}`}>
           <DocumentContent />
         </div>
 
