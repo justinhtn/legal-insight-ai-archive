@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, ChevronDown, X } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 interface Highlight {
   text: string;
@@ -23,7 +22,6 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
   query
 }) => {
   const [currentHighlight, setCurrentHighlight] = useState(0);
-  const [showSidebar, setShowSidebar] = useState(true);
 
   const highlightText = (text: string, highlights: Highlight[]) => {
     let highlightedText = text;
@@ -32,7 +30,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
       const regex = new RegExp(highlight.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
       highlightedText = highlightedText.replace(
         regex,
-        `<mark id="highlight-${index}" class="${index === currentHighlight ? 'current' : ''}">${highlight.text}</mark>`
+        `<mark id="highlight-${index}" style="background-color: ${index === currentHighlight ? '#ffc107' : '#fff3cd'}; padding: 2px 4px; border-radius: 3px;">${highlight.text}</mark>`
       );
     });
     
@@ -44,11 +42,6 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setCurrentHighlight(index);
-      
-      // Update highlight styling
-      document.querySelectorAll('mark').forEach((mark, i) => {
-        mark.className = i === index ? 'current' : '';
-      });
     }
   };
 
@@ -62,86 +55,72 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
     scrollToHighlight(prev);
   };
 
-  useEffect(() => {
-    if (highlights.length > 0) {
-      setTimeout(() => scrollToHighlight(0), 100);
-    }
-  }, [highlights]);
-
+  // CRITICAL: Use fixed positioning to bypass parent containers
   return (
-    <div className="document-viewer">
-      {/* Main Document Content */}
-      <div className="document-viewer-main">
-        {/* Header */}
-        <div className="document-viewer-header">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">{documentTitle}</h1>
-              <p className="text-sm text-gray-600">Query: "{query}"</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">
-                Highlight {currentHighlight + 1} of {highlights.length}
-              </span>
-              <Button size="sm" variant="outline" onClick={prevHighlight}>
-                <ChevronUp className="h-4 w-4" />
-              </Button>
-              <Button size="sm" variant="outline" onClick={nextHighlight}>
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => setShowSidebar(!showSidebar)}
-              >
-                {showSidebar ? 'Hide' : 'Show'} Highlights
-              </Button>
-            </div>
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'white',
+      zIndex: 50,
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '16px',
+        borderBottom: '1px solid #e0e0e0',
+        backgroundColor: '#fafafa',
+        flexShrink: 0
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 4px 0' }}>{documentTitle}</h1>
+            <p style={{ fontSize: '14px', color: '#666', margin: 0 }}>Query: "{query}"</p>
           </div>
-        </div>
-
-        {/* Document Content - Uses CSS class for proper scrolling */}
-        <div className="document-viewer-content">
-          <div 
-            className="document-text"
-            dangerouslySetInnerHTML={{ 
-              __html: highlightText(documentContent, highlights) 
-            }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '14px', color: '#666' }}>
+              Highlight {currentHighlight + 1} of {highlights.length}
+            </span>
+            <Button size="sm" variant="outline" onClick={prevHighlight}>
+              <ChevronUp className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="outline" onClick={nextHighlight}>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => window.close()}
+            >
+              Close
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Sidebar */}
-      {showSidebar && (
-        <div className="document-viewer-sidebar">
-          <div className="document-viewer-sidebar-header">
-            <h3 className="font-semibold text-gray-900">Highlights ({highlights.length})</h3>
-          </div>
-          <div className="document-viewer-sidebar-content">
-            <div className="space-y-2">
-              {highlights.map((highlight, index) => (
-                <Card
-                  key={index}
-                  className={`p-3 cursor-pointer transition-colors ${
-                    currentHighlight === index ? 'bg-yellow-100 border-yellow-300' : 'hover:bg-gray-100'
-                  }`}
-                  onClick={() => scrollToHighlight(index)}
-                >
-                  <div className="text-sm">
-                    <div className="font-medium text-gray-900 mb-1">
-                      {highlight.page && `Page ${highlight.page}`}
-                      {highlight.lines && ` • ${highlight.lines}`}
-                    </div>
-                    <div className="text-gray-700 line-clamp-3">
-                      "{highlight.text}"
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* CRITICAL: Document Content with explicit height and overflow */}
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        padding: '24px',
+        height: 'calc(100vh - 100px)' // Explicit height calculation
+      }}>
+        <div 
+          style={{
+            fontFamily: 'Monaco, "Cascadia Code", "Roboto Mono", monospace',
+            fontSize: '14px',
+            lineHeight: '1.6',
+            whiteSpace: 'pre-wrap',
+            wordWrap: 'break-word'
+          }}
+          dangerouslySetInnerHTML={{ 
+            __html: highlightText(documentContent, highlights) 
+          }}
+        />
+      </div>
     </div>
   );
 };
