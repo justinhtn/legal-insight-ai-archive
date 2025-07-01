@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FileText, Users, Folder } from 'lucide-react';
 import { useFileExplorer } from '@/contexts/FileExplorerContext';
@@ -129,29 +130,27 @@ const DocumentContent: React.FC = () => {
     );
   }
 
-  // Show welcome screen if nothing is selected - FIXED VERSION
+  // Show welcome screen if nothing is selected
   console.log('Rendering welcome screen');
   return (
-    <div className="h-full flex items-center justify-center bg-gray-50">
-      <div className="text-center max-w-md">
-        <FileText className="h-16 w-16 text-gray-400 mb-6 mx-auto" />
-        <h2 className="text-2xl font-semibold text-gray-900 mb-3">
-          Welcome to Legal Document Manager
-        </h2>
-        <p className="text-gray-600 mb-8">
+    <div className="document-content welcome-screen">
+      <div className="welcome-content">
+        <FileText className="h-16 w-16 text-gray-400 mb-4" />
+        <h2 className="welcome-title">Welcome to Legal Document Manager</h2>
+        <p className="welcome-subtitle">
           Select a client or document from the explorer panel to get started
         </p>
-        <div className="space-y-4">
-          <div className="flex items-center justify-center gap-3 text-blue-600">
-            <Users className="h-5 w-5" />
+        <div className="welcome-features">
+          <div className="feature-item">
+            <Users className="h-5 w-5 text-blue-600" />
             <span>Organize clients and cases</span>
           </div>
-          <div className="flex items-center justify-center gap-3 text-green-600">
-            <Folder className="h-5 w-5" />
+          <div className="feature-item">
+            <Folder className="h-5 w-5 text-green-600" />
             <span>Manage documents efficiently</span>
           </div>
-          <div className="flex items-center justify-center gap-3 text-purple-600">
-            <FileText className="h-5 w-5" />
+          <div className="feature-item">
+            <FileText className="h-5 w-5 text-purple-600" />
             <span>Quick document access</span>
           </div>
         </div>
