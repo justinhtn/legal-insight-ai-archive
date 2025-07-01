@@ -16,8 +16,190 @@ import { getClients, getFolders, Client } from "@/services/clientService";
 import { useClientDocuments } from "@/hooks/useClientDocuments";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { FileExplorerProvider, useFileExplorer } from "@/contexts/FileExplorerContext";
+import { useDocumentTabs } from "@/hooks/useDocumentTabs";
 
 type ViewMode = 'home' | 'search' | 'explorer';
+
+const DocumentTreeContent = () => {
+  const [selectedClientId, setSelectedClientId] = useState<string>("all");
+  const [clients, setClients] = useState<Client[]>([]);
+  const [user, setUser] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('home');
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+  const [selectedExplorerClientId, setSelectedExplorerClientId] = useState<string>();
+  const { handleFileClick } = useDocumentTabs();
+
+  // Fetch clients for explorer
+  const { data: explorerClients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: getClients,
+    enabled: !!user,
+  });
+
+  // Fetch folders for expanded clients
+  const { data: clientFolders = [] } = useQuery({
+    queryKey: ['folders', selectedExplorerClientId],
+    queryFn: () => selectedExplorerClientId ? getFolders(selectedExplorerClientId) : Promise.resolve([]),
+    enabled: !!selectedExplorerClientId,
+  });
+
+  // Fetch documents for selected client using the correct hook
+  const { data: clientDocuments = [], isLoading: documentsLoading } = useClientDocuments(selectedExplorerClientId);
+
+  useEffect(() => {
+    // Get initial user
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadClients();
+    }
+  }, [user]);
+
+  const loadClients = async () => {
+    try {
+      const clientsData = await getClients();
+      setClients(clientsData);
+    } catch (error) {
+      console.error('Error loading clients:', error);
+    }
+  };
+
+  const toggleClientExpansion = (clientId: string) => {
+    const newExpanded = new Set(expandedClients);
+    if (newExpanded.has(clientId)) {
+      newExpanded.delete(clientId);
+      if (selectedExplorerClientId === clientId) {
+        setSelectedExplorerClientId(undefined);
+      }
+    } else {
+      newExpanded.add(clientId);
+      setSelectedExplorerClientId(clientId);
+    }
+    setExpandedClients(newExpanded);
+  };
+
+  const handleDocumentClick = async (doc: any) => {
+    await handleFileClick(doc);
+    setViewMode('explorer');
+  };
+
+  // Group documents by folder for better organization
+  const getDocumentsByFolder = (folderId?: string) => {
+    return clientDocuments.filter(doc => doc.folder_id === folderId);
+  };
+
+  const getRootDocuments = () => {
+    return clientDocuments.filter(doc => !doc.folder_id);
+  };
+
+  return (
+    <div className="p-2">
+      <div className="explorer-section">
+        <div className="section-header">
+          <FolderOpen className="h-4 w-4" />
+          <span>Documents</span>
+        </div>
+        
+        <div className="section-items">
+          {explorerClients.map((client) => (
+            <div key={client.id} className="client-tree-item">
+              <button
+                onClick={() => toggleClientExpansion(client.id)}
+                className="explorer-item w-full"
+              >
+                {expandedClients.has(client.id) ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronRight className="h-3 w-3" />
+                )}
+                <Folder className="h-4 w-4" />
+                <span className="truncate">{client.name}</span>
+              </button>
+              
+              {expandedClients.has(client.id) && (
+                <div className="client-tree-content">
+                  {documentsLoading && selectedExplorerClientId === client.id && (
+                    <div className="file-item">
+                      <div className="tree-indent"></div>
+                      <span className="text-muted-foreground text-sm">Loading documents...</span>
+                    </div>
+                  )}
+                  
+                  {/* Show folders with their documents */}
+                  {clientFolders.map((folder) => {
+                    const folderDocs = getDocumentsByFolder(folder.id);
+                    return (
+                      <div key={folder.id}>
+                        <div className="folder-item">
+                          <div className="tree-indent"></div>
+                          <Folder className="h-4 w-4" />
+                          <span className="truncate">{folder.name}</span>
+                        </div>
+                        {/* Documents in this folder */}
+                        {folderDocs.map((doc) => (
+                          <div 
+                            key={doc.id} 
+                            className="file-item cursor-pointer hover:bg-accent" 
+                            style={{ paddingLeft: '32px' }}
+                            onClick={() => handleDocumentClick(doc)}
+                          >
+                            <div className="tree-indent"></div>
+                            <File className="h-4 w-4" />
+                            <span className="truncate">{doc.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Show root-level documents (not in any folder) */}
+                  {getRootDocuments().map((doc) => (
+                    <div 
+                      key={doc.id} 
+                      className="file-item cursor-pointer hover:bg-accent"
+                      onClick={() => handleDocumentClick(doc)}
+                    >
+                      <div className="tree-indent"></div>
+                      <File className="h-4 w-4" />
+                      <span className="truncate">{doc.name}</span>
+                    </div>
+                  ))}
+                  
+                  {/* Show message if no documents found */}
+                  {!documentsLoading && selectedExplorerClientId === client.id && 
+                   clientDocuments.length === 0 && (
+                    <div className="file-item">
+                      <div className="tree-indent"></div>
+                      <span className="text-muted-foreground text-sm">No documents yet</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          
+          {explorerClients.length === 0 && (
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              No clients yet. Upload documents to get started.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,8 +212,6 @@ const Index = () => {
   const [searchMessage, setSearchMessage] = useState<string>("");
   const [isSearching, setIsSearching] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('home');
-  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
-  const [selectedExplorerClientId, setSelectedExplorerClientId] = useState<string>();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
 
@@ -231,7 +411,7 @@ const Index = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{explorerClients.length}</div>
+                  <div className="text-2xl font-bold">{clients.length}</div>
                   <p className="text-xs text-muted-foreground">
                     Client matters with organized documents
                   </p>
@@ -299,205 +479,113 @@ const Index = () => {
     }
   };
 
-  // Group documents by folder for better organization
-  const getDocumentsByFolder = (folderId?: string) => {
-    return clientDocuments.filter(doc => doc.folder_id === folderId);
-  };
-
-  const getRootDocuments = () => {
-    return clientDocuments.filter(doc => !doc.folder_id);
-  };
-
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <Sidebar className="w-80 bg-explorer-background border-r">
-          <SidebarContent className="p-0">
-            <div className="explorer-header">
-              <div className="flex items-center justify-between px-4 py-3">
-                <h2 className="text-sm font-semibold text-foreground">Legal Archive</h2>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className="h-6 w-6"
-                >
-                  {theme === "dark" ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
-                </Button>
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto">
-              {/* Navigation Buttons */}
-              <div className="px-2 py-2 border-b border-border">
-                <div className="space-y-1">
-                  <button
-                    onClick={() => setViewMode('home')}
-                    className={`explorer-item w-full ${viewMode === 'home' ? 'selected' : ''}`}
+    <FileExplorerProvider>
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <Sidebar className="w-80 bg-explorer-background border-r">
+            <SidebarContent className="p-0">
+              <div className="explorer-header">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <h2 className="text-sm font-semibold text-foreground">Legal Archive</h2>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                    className="h-6 w-6"
                   >
-                    <Home className="h-4 w-4" />
-                    <span>Dashboard</span>
-                  </button>
-                  <button
-                    onClick={() => setIsUploadOpen(true)}
-                    disabled={!user}
-                    className="explorer-item w-full"
-                  >
-                    <Upload className="h-4 w-4" />
-                    <span>Upload Documents</span>
-                  </button>
+                    {theme === "dark" ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
+                  </Button>
                 </div>
               </div>
+              
+              <div className="flex-1 overflow-y-auto">
+                {/* Navigation Buttons */}
+                <div className="px-2 py-2 border-b border-border">
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setViewMode('home')}
+                      className={`explorer-item w-full ${viewMode === 'home' ? 'selected' : ''}`}
+                    >
+                      <Home className="h-4 w-4" />
+                      <span>Dashboard</span>
+                    </button>
+                    <button
+                      onClick={() => setIsUploadOpen(true)}
+                      disabled={!user}
+                      className="explorer-item w-full"
+                    >
+                      <Upload className="h-4 w-4" />
+                      <span>Upload Documents</span>
+                    </button>
+                  </div>
+                </div>
 
-              {/* Legal Explorer Tree */}
-              {user && (
-                <div className="p-2">
-                  <div className="explorer-section">
-                    <div className="section-header">
-                      <FolderOpen className="h-4 w-4" />
-                      <span>Documents</span>
+                {/* Legal Explorer Tree */}
+                {user && <DocumentTreeContent />}
+              </div>
+            </SidebarContent>
+          </Sidebar>
+
+          <div className="flex-1 flex flex-col min-w-0">
+            <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <div className="flex h-14 items-center px-4 lg:px-6">
+                <SidebarTrigger />
+                <div className="ml-auto flex items-center space-x-4">
+                  <form onSubmit={handleSearch} className="relative flex items-center space-x-2">
+                    <div className="relative flex-1 max-w-lg">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="search"
+                        placeholder={`Search ${selectedClientId === "all" ? 'all documents' : 'within client'}...`}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-8 w-full"
+                        disabled={isSearching}
+                      />
                     </div>
-                    
-                    <div className="section-items">
-                      {explorerClients.map((client) => (
-                        <div key={client.id} className="client-tree-item">
-                          <button
-                            onClick={() => toggleClientExpansion(client.id)}
-                            className="explorer-item w-full"
-                          >
-                            {expandedClients.has(client.id) ? (
-                              <ChevronDown className="h-3 w-3" />
-                            ) : (
-                              <ChevronRight className="h-3 w-3" />
-                            )}
-                            <Folder className="h-4 w-4" />
-                            <span className="truncate">{client.name}</span>
-                          </button>
-                          
-                          {expandedClients.has(client.id) && (
-                            <div className="client-tree-content">
-                              {documentsLoading && selectedExplorerClientId === client.id && (
-                                <div className="file-item">
-                                  <div className="tree-indent"></div>
-                                  <span className="text-muted-foreground text-sm">Loading documents...</span>
-                                </div>
-                              )}
-                              
-                              {/* Show folders with their documents */}
-                              {clientFolders.map((folder) => {
-                                const folderDocs = getDocumentsByFolder(folder.id);
-                                return (
-                                  <div key={folder.id}>
-                                    <div className="folder-item">
-                                      <div className="tree-indent"></div>
-                                      <Folder className="h-4 w-4" />
-                                      <span className="truncate">{folder.name}</span>
-                                    </div>
-                                    {/* Documents in this folder */}
-                                    {folderDocs.map((doc) => (
-                                      <div key={doc.id} className="file-item" style={{ paddingLeft: '32px' }}>
-                                        <div className="tree-indent"></div>
-                                        <File className="h-4 w-4" />
-                                        <span className="truncate">{doc.name}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                );
-                              })}
-                              
-                              {/* Show root-level documents (not in any folder) */}
-                              {getRootDocuments().map((doc) => (
-                                <div key={doc.id} className="file-item">
-                                  <div className="tree-indent"></div>
-                                  <File className="h-4 w-4" />
-                                  <span className="truncate">{doc.name}</span>
-                                </div>
-                              ))}
-                              
-                              {/* Show message if no documents found */}
-                              {!documentsLoading && selectedExplorerClientId === client.id && 
-                               clientDocuments.length === 0 && (
-                                <div className="file-item">
-                                  <div className="tree-indent"></div>
-                                  <span className="text-muted-foreground text-sm">No documents yet</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      
-                      {explorerClients.length === 0 && (
-                        <div className="text-center py-4 text-muted-foreground text-sm">
-                          No clients yet. Upload documents to get started.
-                        </div>
-                      )}
-                    </div>
+                    {user && clients.length > 0 && (
+                      <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                        <SelectTrigger className="w-48">
+                          <SelectValue placeholder="All Clients" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Clients</SelectItem>
+                          {clients.map(client => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </form>
+                  <AuthButton user={user} onAuthChange={handleAuthChange} />
+                </div>
+              </div>
+            </header>
+
+            <main className="flex-1 overflow-hidden">
+              {viewMode === 'explorer' ? (
+                renderContent()
+              ) : (
+                <div className="p-6">
+                  <div className="max-w-7xl mx-auto space-y-6">
+                    {renderContent()}
                   </div>
                 </div>
               )}
-            </div>
-          </SidebarContent>
-        </Sidebar>
+            </main>
+          </div>
 
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex h-14 items-center px-4 lg:px-6">
-              <SidebarTrigger />
-              <div className="ml-auto flex items-center space-x-4">
-                <form onSubmit={handleSearch} className="relative flex items-center space-x-2">
-                  <div className="relative flex-1 max-w-lg">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder={`Search ${selectedClientId === "all" ? 'all documents' : 'within client'}...`}
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-8 w-full"
-                      disabled={isSearching}
-                    />
-                  </div>
-                  {user && clients.length > 0 && (
-                    <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="All Clients" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Clients</SelectItem>
-                        {clients.map(client => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </form>
-                <AuthButton user={user} onAuthChange={handleAuthChange} />
-              </div>
-            </div>
-          </header>
-
-          <main className="flex-1 overflow-hidden">
-            {viewMode === 'explorer' ? (
-              renderContent()
-            ) : (
-              <div className="p-6">
-                <div className="max-w-7xl mx-auto space-y-6">
-                  {renderContent()}
-                </div>
-              </div>
-            )}
-          </main>
+          <DocumentUploadModal
+            isOpen={isUploadOpen}
+            onClose={() => setIsUploadOpen(false)}
+            onUpload={handleDocumentUpload}
+          />
         </div>
-
-        <DocumentUploadModal
-          isOpen={isUploadOpen}
-          onClose={() => setIsUploadOpen(false)}
-          onUpload={handleDocumentUpload}
-        />
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </FileExplorerProvider>
   );
 };
 
