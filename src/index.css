@@ -325,6 +325,97 @@ All colors MUST be HSL.
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
+/* Add this to your existing CSS file - Document Viewer Scrolling Fix */
+
+/* Document Viewer Container - Force proper height and scrolling */
+.document-viewer {
+  height: 100vh;
+  display: flex;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.document-viewer-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.document-viewer-header {
+  flex-shrink: 0;
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.document-viewer-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  min-height: 0;
+}
+
+.document-viewer-sidebar {
+  width: 320px;
+  border-left: 1px solid #e0e0e0;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.document-viewer-sidebar-header {
+  flex-shrink: 0;
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.document-viewer-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  min-height: 0;
+}
+
+/* Override any conflicting Tailwind classes */
+.document-viewer .h-full {
+  height: 100vh !important;
+}
+
+.document-viewer .flex-1 {
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+.document-viewer .overflow-y-auto {
+  overflow-y: auto !important;
+}
+
+/* Ensure proper text rendering in document content */
+.document-text {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-width: none;
+}
+
+/* Highlight styling */
+.document-text mark {
+  background-color: #fff3cd;
+  padding: 2px 4px;
+  border-radius: 3px;
+  border: 1px solid #ffeaa7;
+}
+
+.document-text mark.current {
+  background-color: #ffc107;
+  border-color: #ff9500;
+}
+
 .document-tab:hover:not(.active) {
   background: #e8eaed;
   color: #3c4043;

@@ -1,7 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { ChevronUp, ChevronDown, X } from 'lucide-react';
 
@@ -34,7 +32,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
       const regex = new RegExp(highlight.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
       highlightedText = highlightedText.replace(
         regex,
-        `<mark id="highlight-${index}" class="bg-yellow-200 px-1 rounded">${highlight.text}</mark>`
+        `<mark id="highlight-${index}" class="${index === currentHighlight ? 'current' : ''}">${highlight.text}</mark>`
       );
     });
     
@@ -46,6 +44,11 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setCurrentHighlight(index);
+      
+      // Update highlight styling
+      document.querySelectorAll('mark').forEach((mark, i) => {
+        mark.className = i === index ? 'current' : '';
+      });
     }
   };
 
@@ -59,12 +62,18 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
     scrollToHighlight(prev);
   };
 
+  useEffect(() => {
+    if (highlights.length > 0) {
+      setTimeout(() => scrollToHighlight(0), 100);
+    }
+  }, [highlights]);
+
   return (
-    <div className="h-full flex bg-white">
+    <div className="document-viewer">
       {/* Main Document Content */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="document-viewer-main">
         {/* Header */}
-        <div className="flex-shrink-0 p-4 border-b bg-gray-50">
+        <div className="document-viewer-header">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-gray-900">{documentTitle}</h1>
@@ -87,17 +96,14 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
               >
                 {showSidebar ? 'Hide' : 'Show'} Highlights
               </Button>
-              <Button size="sm" variant="outline" onClick={() => window.close()}>
-                <X className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </div>
 
-        {/* Document Content - Fixed scrolling */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Document Content - Uses CSS class for proper scrolling */}
+        <div className="document-viewer-content">
           <div 
-            className="prose max-w-none whitespace-pre-wrap font-mono text-sm leading-relaxed"
+            className="document-text"
             dangerouslySetInnerHTML={{ 
               __html: highlightText(documentContent, highlights) 
             }}
@@ -107,12 +113,12 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
       {/* Sidebar */}
       {showSidebar && (
-        <div className="w-80 border-l bg-gray-50 flex flex-col">
-          <div className="flex-shrink-0 p-4 border-b">
+        <div className="document-viewer-sidebar">
+          <div className="document-viewer-sidebar-header">
             <h3 className="font-semibold text-gray-900">Highlights ({highlights.length})</h3>
           </div>
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-4 space-y-2">
+          <div className="document-viewer-sidebar-content">
+            <div className="space-y-2">
               {highlights.map((highlight, index) => (
                 <Card
                   key={index}
