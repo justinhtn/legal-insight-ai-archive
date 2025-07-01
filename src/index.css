@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -46,6 +47,13 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* VS Code Explorer Colors */
+    --explorer-background: 0 0% 97%;
+    --explorer-foreground: 0 0% 20%;
+    --explorer-hover: 0 0% 93%;
+    --explorer-selected: 210 100% 95%;
+    --explorer-border: 0 0% 90%;
   }
 
   .dark {
@@ -84,6 +92,13 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Dark mode explorer colors */
+    --explorer-background: 240 6% 10%;
+    --explorer-foreground: 0 0% 80%;
+    --explorer-hover: 240 6% 15%;
+    --explorer-selected: 220 100% 25%;
+    --explorer-border: 240 6% 20%;
   }
 }
 
@@ -163,6 +178,90 @@ All colors MUST be HSL.
   .sidebar-item.active {
     @apply bg-primary text-primary-foreground;
   }
+}
+
+/* VS Code Explorer Styles */
+.bg-explorer-background {
+  background-color: hsl(var(--explorer-background));
+}
+
+.explorer-header {
+  background-color: hsl(var(--explorer-background));
+  border-bottom: 1px solid hsl(var(--explorer-border));
+}
+
+.explorer-section {
+  margin-bottom: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--explorer-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.section-items {
+  padding: 0;
+}
+
+.explorer-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  font-size: 14px;
+  color: hsl(var(--explorer-foreground));
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  text-align: left;
+  width: 100%;
+  min-height: 22px;
+}
+
+.explorer-item:hover {
+  background-color: hsl(var(--explorer-hover));
+}
+
+.explorer-item.selected {
+  background-color: hsl(var(--explorer-selected));
+}
+
+.client-tree-item {
+  margin-bottom: 0;
+}
+
+.client-tree-content {
+  margin-left: 0;
+}
+
+.folder-item, .file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 24px;
+  font-size: 14px;
+  color: hsl(var(--explorer-foreground));
+  cursor: pointer;
+  min-height: 22px;
+  transition: background-color 0.15s ease;
+}
+
+.folder-item:hover, .file-item:hover {
+  background-color: hsl(var(--explorer-hover));
+}
+
+.tree-indent {
+  width: 16px;
+  flex-shrink: 0;
 }
 
 /* Custom scrollbar styling for consistency */
@@ -425,24 +524,6 @@ All colors MUST be HSL.
   width: 48px;
 }
 
-.explorer-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #e0e0e0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #f5f5f5;
-  min-height: 44px;
-  flex-shrink: 0;
-}
-
-.explorer-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #424242;
-  letter-spacing: 0.5px;
-}
-
 .collapse-btn {
   background: none;
   border: none;
@@ -468,33 +549,6 @@ All colors MUST be HSL.
   min-height: 0;
 }
 
-.explorer-section {
-  margin-bottom: 16px;
-}
-
-.section-header {
-  padding: 6px 16px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #757575;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-}
-
-.section-header.clickable {
-  cursor: pointer;
-  border-radius: 0;
-  transition: all 0.2s ease;
-}
-
-.section-header.clickable:hover {
-  background-color: #f0f0f0;
-}
-
 .disclosure-icon {
   transition: transform 0.2s ease;
   color: #757575;
@@ -506,26 +560,6 @@ All colors MUST be HSL.
 
 .section-title {
   flex: 1;
-}
-
-.section-items {
-  padding-left: 0;
-}
-
-.explorer-item {
-  padding: 4px 16px 4px 32px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #424242;
-  transition: all 0.2s ease;
-  height: 28px;
-}
-
-.explorer-item:hover {
-  background-color: #f0f0f0;
 }
 
 .item-icon {
@@ -644,32 +678,6 @@ All colors MUST be HSL.
 
 .client-files {
   padding-left: 0;
-}
-
-.folder-item, .file-item {
-  padding: 3px 16px 3px 64px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  height: 24px;
-  position: relative;
-}
-
-.folder-item:hover, .file-item:hover {
-  background-color: #f0f0f0;
-}
-
-.folder-icon {
-  color: #795548;
-  flex-shrink: 0;
-}
-
-.file-icon {
-  color: #757575;
-  flex-shrink: 0;
 }
 
 .file-name {

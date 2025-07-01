@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Upload, Search, FolderOpen, FileText, Moon, Sun, Home, Users } from "lucide-react";
+import { Upload, Search, FolderOpen, FileText, Moon, Sun, Home, Users, ChevronRight, ChevronDown, Folder, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,8 +13,10 @@ import SearchResults from "@/components/SearchResults";
 import FileExplorer from "@/components/FileExplorer";
 import DocumentUploadModal from "@/components/DocumentUploadModal";
 import { searchDocuments, ConsolidatedDocument } from "@/services/searchService";
-import { getClients, Client } from "@/services/clientService";
+import { getClients, getFolders, Client } from "@/services/clientService";
+import { getDocuments } from "@/services/documentService";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 type ViewMode = 'home' | 'search' | 'explorer';
 
@@ -29,8 +31,31 @@ const Index = () => {
   const [searchMessage, setSearchMessage] = useState<string>("");
   const [isSearching, setIsSearching] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('home');
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+  const [selectedExplorerClientId, setSelectedExplorerClientId] = useState<string>();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
+
+  // Fetch clients for explorer
+  const { data: explorerClients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: getClients,
+    enabled: !!user,
+  });
+
+  // Fetch folders for expanded clients
+  const { data: clientFolders = [] } = useQuery({
+    queryKey: ['folders', selectedExplorerClientId],
+    queryFn: () => selectedExplorerClientId ? getFolders(selectedExplorerClientId) : Promise.resolve([]),
+    enabled: !!selectedExplorerClientId,
+  });
+
+  // Fetch documents for selected folder
+  const { data: folderDocuments = [] } = useQuery({
+    queryKey: ['documents', selectedExplorerClientId],
+    queryFn: () => selectedExplorerClientId ? getDocuments(selectedExplorerClientId) : Promise.resolve([]),
+    enabled: !!selectedExplorerClientId,
+  });
 
   useEffect(() => {
     // Get initial user
@@ -61,13 +86,26 @@ const Index = () => {
     }
   };
 
+  const toggleClientExpansion = (clientId: string) => {
+    const newExpanded = new Set(expandedClients);
+    if (newExpanded.has(clientId)) {
+      newExpanded.delete(clientId);
+      if (selectedExplorerClientId === clientId) {
+        setSelectedExplorerClientId(undefined);
+      }
+    } else {
+      newExpanded.add(clientId);
+      setSelectedExplorerClientId(clientId);
+    }
+    setExpandedClients(newExpanded);
+  };
+
   const handleDocumentUpload = (files: File[]) => {
     console.log('Uploaded files:', files);
     toast({
       title: "Documents uploaded",
       description: `${files.length} document${files.length !== 1 ? 's' : ''} uploaded and processed successfully`,
     });
-    // Refresh clients data in case new documents were added
     if (user) {
       loadClients();
     }
@@ -121,11 +159,6 @@ const Index = () => {
     } finally {
       setIsSearching(false);
     }
-  };
-
-  const getSelectedClientName = () => {
-    const client = clients.find(c => c.id === selectedClientId);
-    return client ? client.name : 'All Clients';
   };
 
   const renderContent = () => {
@@ -195,17 +228,17 @@ const Index = () => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setViewMode('explorer')}>
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <FolderOpen className="mr-2 h-5 w-5" />
-                    Manage Files & Clients
+                    <Users className="mr-2 h-5 w-5" />
+                    Active Clients
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{clients.length}</div>
+                  <div className="text-2xl font-bold">{explorerClients.length}</div>
                   <p className="text-xs text-muted-foreground">
-                    Active client matters with organized documents
+                    Client matters with organized documents
                   </p>
                 </CardContent>
               </Card>
@@ -274,53 +307,100 @@ const Index = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
-        <Sidebar>
-          <SidebarContent className="p-4">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 
-                  className="text-lg font-semibold cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => setViewMode('home')}
-                >
-                  Legal Archive
-                </h2>
+        <Sidebar className="w-80 bg-explorer-background border-r">
+          <SidebarContent className="p-0">
+            <div className="explorer-header">
+              <div className="flex items-center justify-between px-4 py-3">
+                <h2 className="text-sm font-semibold text-foreground">Legal Archive</h2>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  className="h-6 w-6"
                 >
-                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {theme === "dark" ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
                 </Button>
               </div>
-              
-              <div className="flex flex-col s space-y-2">
-                <Button 
-                  variant={viewMode === 'home' ? 'default' : 'outline'}
-                  size="icon"
-                  onClick={() => setViewMode('home')}
-                  title="Dashboard"
-                >
-                  <Home className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant={viewMode === 'explorer' ? 'default' : 'ghost'}
-                  size="icon"
-                  onClick={() => setViewMode('explorer')}
-                  disabled={!user}
-                  title="Manage Files & Clients"
-                >
-                  <FolderOpen className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={() => setIsUploadOpen(true)}
-                  disabled={!user}
-                  title="Upload Documents"
-                >
-                  <Upload className="h-4 w-4" />
-                </Button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              {/* Navigation Buttons */}
+              <div className="px-2 py-2 border-b border-border">
+                <div className="space-y-1">
+                  <button
+                    onClick={() => setViewMode('home')}
+                    className={`explorer-item w-full ${viewMode === 'home' ? 'selected' : ''}`}
+                  >
+                    <Home className="h-4 w-4" />
+                    <span>Dashboard</span>
+                  </button>
+                  <button
+                    onClick={() => setIsUploadOpen(true)}
+                    disabled={!user}
+                    className="explorer-item w-full"
+                  >
+                    <Upload className="h-4 w-4" />
+                    <span>Upload Documents</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Legal Explorer Tree */}
+              {user && (
+                <div className="p-2">
+                  <div className="explorer-section">
+                    <div className="section-header">
+                      <FolderOpen className="h-4 w-4" />
+                      <span>Documents</span>
+                    </div>
+                    
+                    <div className="section-items">
+                      {explorerClients.map((client) => (
+                        <div key={client.id} className="client-tree-item">
+                          <button
+                            onClick={() => toggleClientExpansion(client.id)}
+                            className="explorer-item w-full"
+                          >
+                            {expandedClients.has(client.id) ? (
+                              <ChevronDown className="h-3 w-3" />
+                            ) : (
+                              <ChevronRight className="h-3 w-3" />
+                            )}
+                            <Folder className="h-4 w-4" />
+                            <span className="truncate">{client.name}</span>
+                          </button>
+                          
+                          {expandedClients.has(client.id) && (
+                            <div className="client-tree-content">
+                              {clientFolders.map((folder) => (
+                                <div key={folder.id} className="folder-item">
+                                  <div className="tree-indent"></div>
+                                  <Folder className="h-4 w-4" />
+                                  <span className="truncate">{folder.name}</span>
+                                </div>
+                              ))}
+                              
+                              {folderDocuments.map((doc) => (
+                                <div key={doc.id} className="file-item">
+                                  <div className="tree-indent"></div>
+                                  <File className="h-4 w-4" />
+                                  <span className="truncate">{doc.name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {explorerClients.length === 0 && (
+                        <div className="text-center py-4 text-muted-foreground text-sm">
+                          No clients yet. Upload documents to get started.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </SidebarContent>
         </Sidebar>
