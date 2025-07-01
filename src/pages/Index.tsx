@@ -149,7 +149,7 @@ const DocumentTreeContent: React.FC<DocumentTreeContentProps> = ({
   );
 };
 
-const Index = () => {
+const IndexContent = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string>("all");
   const [clients, setClients] = useState<Client[]>([]);
@@ -440,122 +440,128 @@ const Index = () => {
   };
 
   return (
-    <FileExplorerProvider>
-      <SidebarProvider>
-        <div className="min-h-screen flex w-full bg-background">
-          <Sidebar className="w-80 bg-explorer-background border-r">
-            <SidebarContent className="p-0">
-              <div className="explorer-header">
-                <div className="flex items-center justify-between px-4 py-3">
-                  <h2 className="text-sm font-semibold text-foreground">Legal Archive</h2>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                    className="h-6 w-6"
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <Sidebar className="w-80 bg-explorer-background border-r">
+          <SidebarContent className="p-0">
+            <div className="explorer-header">
+              <div className="flex items-center justify-between px-4 py-3">
+                <h2 className="text-sm font-semibold text-foreground">Legal Archive</h2>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  className="h-6 w-6"
+                >
+                  {theme === "dark" ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
+                </Button>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              {/* Navigation Buttons */}
+              <div className="px-2 py-2 border-b border-border">
+                <div className="space-y-1">
+                  <button
+                    onClick={() => setViewMode('home')}
+                    className={`explorer-item w-full ${viewMode === 'home' ? 'selected' : ''}`}
                   >
-                    {theme === "dark" ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
-                  </Button>
+                    <Home className="h-4 w-4" />
+                    <span>Dashboard</span>
+                  </button>
+                  <button
+                    onClick={() => setIsUploadOpen(true)}
+                    disabled={!user}
+                    className="explorer-item w-full"
+                  >
+                    <Upload className="h-4 w-4" />
+                    <span>Upload Documents</span>
+                  </button>
                 </div>
               </div>
-              
-              <div className="flex-1 overflow-y-auto">
-                {/* Navigation Buttons */}
-                <div className="px-2 py-2 border-b border-border">
-                  <div className="space-y-1">
-                    <button
-                      onClick={() => setViewMode('home')}
-                      className={`explorer-item w-full ${viewMode === 'home' ? 'selected' : ''}`}
-                    >
-                      <Home className="h-4 w-4" />
-                      <span>Dashboard</span>
-                    </button>
-                    <button
-                      onClick={() => setIsUploadOpen(true)}
-                      disabled={!user}
-                      className="explorer-item w-full"
-                    >
-                      <Upload className="h-4 w-4" />
-                      <span>Upload Documents</span>
-                    </button>
-                  </div>
-                </div>
 
-                {/* Legal Explorer Tree */}
-                {user && (
-                  <DocumentTreeContent
-                    explorerClients={explorerClients}
-                    expandedClients={expandedClients}
-                    selectedExplorerClientId={selectedExplorerClientId}
-                    clientFolders={clientFolders}
-                    clientDocuments={clientDocuments}
-                    documentsLoading={documentsLoading}
-                    onToggleClientExpansion={toggleClientExpansion}
-                    onDocumentClick={handleDocumentClick}
-                  />
-                )}
-              </div>
-            </SidebarContent>
-          </Sidebar>
-
-          <div className="flex-1 flex flex-col min-w-0">
-            <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <div className="flex h-14 items-center px-4 lg:px-6">
-                <SidebarTrigger />
-                <div className="ml-auto flex items-center space-x-4">
-                  <form onSubmit={handleSearch} className="relative flex items-center space-x-2">
-                    <div className="relative flex-1 max-w-lg">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        type="search"
-                        placeholder={`Search ${selectedClientId === "all" ? 'all documents' : 'within client'}...`}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-8 w-full"
-                        disabled={isSearching}
-                      />
-                    </div>
-                    {user && clients.length > 0 && (
-                      <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                        <SelectTrigger className="w-48">
-                          <SelectValue placeholder="All Clients" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Clients</SelectItem>
-                          {clients.map(client => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {client.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </form>
-                  <AuthButton user={user} onAuthChange={handleAuthChange} />
-                </div>
-              </div>
-            </header>
-
-            <main className="flex-1 overflow-hidden">
-              {viewMode === 'explorer' ? (
-                renderContent()
-              ) : (
-                <div className="p-6">
-                  <div className="max-w-7xl mx-auto space-y-6">
-                    {renderContent()}
-                  </div>
-                </div>
+              {/* Legal Explorer Tree */}
+              {user && (
+                <DocumentTreeContent
+                  explorerClients={explorerClients}
+                  expandedClients={expandedClients}
+                  selectedExplorerClientId={selectedExplorerClientId}
+                  clientFolders={clientFolders}
+                  clientDocuments={clientDocuments}
+                  documentsLoading={documentsLoading}
+                  onToggleClientExpansion={toggleClientExpansion}
+                  onDocumentClick={handleDocumentClick}
+                />
               )}
-            </main>
-          </div>
+            </div>
+          </SidebarContent>
+        </Sidebar>
 
-          <DocumentUploadModal
-            isOpen={isUploadOpen}
-            onClose={() => setIsUploadOpen(false)}
-            onUpload={handleDocumentUpload}
-          />
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="flex h-14 items-center px-4 lg:px-6">
+              <SidebarTrigger />
+              <div className="ml-auto flex items-center space-x-4">
+                <form onSubmit={handleSearch} className="relative flex items-center space-x-2">
+                  <div className="relative flex-1 max-w-lg">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder={`Search ${selectedClientId === "all" ? 'all documents' : 'within client'}...`}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8 w-full"
+                      disabled={isSearching}
+                    />
+                  </div>
+                  {user && clients.length > 0 && (
+                    <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="All Clients" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Clients</SelectItem>
+                        {clients.map(client => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </form>
+                <AuthButton user={user} onAuthChange={handleAuthChange} />
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 overflow-hidden">
+            {viewMode === 'explorer' ? (
+              renderContent()
+            ) : (
+              <div className="p-6">
+                <div className="max-w-7xl mx-auto space-y-6">
+                  {renderContent()}
+                </div>
+              </div>
+            )}
+          </main>
         </div>
-      </SidebarProvider>
+
+        <DocumentUploadModal
+          isOpen={isUploadOpen}
+          onClose={() => setIsUploadOpen(false)}
+          onUpload={handleDocumentUpload}
+        />
+      </div>
+    </SidebarProvider>
+  );
+};
+
+const Index = () => {
+  return (
+    <FileExplorerProvider>
+      <IndexContent />
     </FileExplorerProvider>
   );
 };
