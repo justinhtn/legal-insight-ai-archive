@@ -93,18 +93,14 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
           </div>
         </div>
 
-        {/* Document Content - FIXED SCROLLING */}
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
-            <div className="p-6">
-              <div 
-                className="prose max-w-none whitespace-pre-wrap font-mono text-sm leading-relaxed"
-                dangerouslySetInnerHTML={{ 
-                  __html: highlightText(documentContent, highlights) 
-                }}
-              />
-            </div>
-          </ScrollArea>
+        {/* Document Content - NATIVE SCROLLING */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div 
+            className="prose max-w-none whitespace-pre-wrap font-mono text-sm leading-relaxed"
+            dangerouslySetInnerHTML={{ 
+              __html: highlightText(documentContent, highlights) 
+            }}
+          />
         </div>
       </div>
 
@@ -114,9 +110,8 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
           <div className="flex-shrink-0 p-4 border-b">
             <h3 className="font-semibold text-gray-900">Highlights ({highlights.length})</h3>
           </div>
-          <div className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-4 space-y-2">
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4 space-y-2">
                 {highlights.map((highlight, index) => (
                   <Card
                     key={index}
