@@ -18,8 +18,16 @@ const DocumentContent: React.FC = () => {
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
 
-  // Show document viewer if there are open tabs and not showing overview
-  if (openTabs.length > 0 && !showOverview && activeTabId) {
+  console.log('DocumentContent render:', {
+    openTabsCount: openTabs.length,
+    activeTabId,
+    showOverview,
+    selectedClientId
+  });
+
+  // Show document viewer if there are open tabs and we're not showing overview
+  if (openTabs.length > 0 && !showOverview) {
+    console.log('Rendering TabbedDocumentViewer with tabs:', openTabs.length);
     return (
       <TabbedDocumentViewer
         tabs={openTabs}
@@ -35,6 +43,7 @@ const DocumentContent: React.FC = () => {
 
   // Show client overview if client is selected
   if (selectedClient) {
+    console.log('Rendering client overview for:', selectedClient.name);
     return (
       <div className="document-content">
         <div className="content-header">
@@ -122,6 +131,7 @@ const DocumentContent: React.FC = () => {
   }
 
   // Show welcome screen if nothing is selected
+  console.log('Rendering welcome screen');
   return (
     <div className="document-content welcome-screen">
       <div className="welcome-content">

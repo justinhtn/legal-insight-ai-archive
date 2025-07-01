@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { processFile } from '@/utils/fileProcessor';
 
 export interface Document {
   id: string;
@@ -41,25 +42,49 @@ export const uploadDocument = async (
   clientId?: string | null, 
   folderId?: string | null
 ): Promise<any> => {
-  const formData = new FormData();
-  formData.append('file', file);
-  
-  if (clientId) {
-    formData.append('client_id', clientId);
-  }
-  
-  if (folderId) {
-    formData.append('folder_id', folderId);
-  }
+  try {
+    console.log('Processing file before upload:', file.name);
+    
+    // Process the file to extract content
+    const { content, extractedData } = await processFile(file);
+    
+    // Prepare the JSON payload for the edge function
+    const payload = {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      content: content,
+      title: file.name.replace(/\.[^/.]+$/, ''), // Remove file extension for title
+      extractedData: extractedData,
+      clientId: clientId,
+      folderId: folderId
+    };
 
-  // Call the Supabase Edge Function for document processing
-  const { data, error } = await supabase.functions.invoke('process-document', {
-    body: formData,
-  });
+    console.log('Sending JSON payload to edge function:', {
+      fileName: payload.fileName,
+      fileType: payload.fileType,
+      fileSize: payload.fileSize,
+      contentLength: payload.content.length,
+      hasExtractedData: !!payload.extractedData
+    });
 
-  if (error) {
-    throw new Error(`Upload failed: ${error.message}`);
+    // Call the Supabase Edge Function with JSON payload
+    const { data, error } = await supabase.functions.invoke('process-document', {
+      body: JSON.stringify(payload),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error(`Upload failed: ${error.message}`);
+    }
+
+    console.log('Edge function response:', data);
+    return data;
+  } catch (error) {
+    console.error('Upload error:', error);
+    throw error;
   }
-
-  return data;
 };

@@ -27,6 +27,7 @@ export const useDocumentTabs = () => {
   } = useFileExplorer();
 
   const handleTabChange = (tabId: string) => {
+    console.log('Changing to tab:', tabId);
     setActiveTabId(tabId);
     setShowOverview(false);
   };
@@ -37,7 +38,9 @@ export const useDocumentTabs = () => {
       const newTabs = prev.filter(tab => tab.id !== tabId);
       if (activeTabId === tabId) {
         if (newTabs.length > 0) {
-          setActiveTabId(newTabs[newTabs.length - 1].id);
+          const nextActiveTab = newTabs[newTabs.length - 1];
+          setActiveTabId(nextActiveTab.id);
+          setShowOverview(false);
         } else {
           setActiveTabId(null);
           setShowOverview(true);
@@ -48,6 +51,7 @@ export const useDocumentTabs = () => {
   };
 
   const handleShowOverview = () => {
+    console.log('Showing overview');
     setShowOverview(true);
     setActiveTabId(null);
   };
@@ -59,6 +63,7 @@ export const useDocumentTabs = () => {
     let content = '';
     try {
       content = await getDocumentContent(document.id);
+      console.log('Fetched document content, length:', content.length);
     } catch (error) {
       console.error('Failed to fetch document content:', error);
       content = 'Failed to load document content';
@@ -79,11 +84,13 @@ export const useDocumentTabs = () => {
       if (existingIndex >= 0) {
         const updated = [...prev];
         updated[existingIndex] = newTab;
+        console.log('Updated existing tab:', newTab.id);
         setActiveTabId(newTab.id);
         setShowOverview(false);
         return updated;
       }
       const newTabs = [...prev, newTab];
+      console.log('Added new tab:', newTab.id, 'Total tabs:', newTabs.length);
       setActiveTabId(newTab.id);
       setShowOverview(false);
       return newTabs;
@@ -91,11 +98,14 @@ export const useDocumentTabs = () => {
   };
 
   const handleFileClick = async (file: any) => {
-    if (file.type === 'document' || file.type === 'file') {
+    console.log('File clicked:', file);
+    
+    if (file.type === 'document' || file.type === 'file' || !file.type) {
       // Fetch the actual document content
       let content = '';
       try {
         content = await getDocumentContent(file.id);
+        console.log('Fetched document content for file click, length:', content.length);
       } catch (error) {
         console.error('Failed to fetch document content:', error);
         content = 'Failed to load document content';
@@ -111,14 +121,18 @@ export const useDocumentTabs = () => {
         query: ''
       };
       
+      console.log('Creating new tab for file:', newTab);
+      
       setOpenTabs(prev => {
         const existingIndex = prev.findIndex(tab => tab.id === file.id);
         if (existingIndex >= 0) {
+          console.log('Tab already exists, switching to it:', file.id);
           setActiveTabId(file.id);
           setShowOverview(false);
           return prev;
         }
         const newTabs = [...prev, newTab];
+        console.log('Added new tab for file:', file.id, 'Total tabs:', newTabs.length);
         setActiveTabId(file.id);
         setShowOverview(false);
         return newTabs;

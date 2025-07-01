@@ -56,7 +56,6 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   React.useEffect(() => {
     if (currentClientId && currentClientId !== 'none') {
       loadFolders(currentClientId);
-      // Reset folder selection when client changes (unless it's the initial load)
       if (currentClientId !== selectedClientId) {
         setCurrentFolderId('none');
       }
@@ -147,19 +146,20 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         )
       );
 
-      setUploadedFiles(prev => 
-        prev.map(f => 
-          f.id === uploadFile.id 
-            ? { ...f, progress: 50 }
-            : f
-        )
-      );
-
       // Convert special values to null for API
       const clientIdToUse = currentClientId === 'none' ? null : currentClientId;
       const folderIdToUse = currentFolderId === 'none' ? null : currentFolderId;
       
       console.log('Uploading with assignments:', { clientIdToUse, folderIdToUse });
+      
+      // Update progress during processing
+      setUploadedFiles(prev => 
+        prev.map(f => 
+          f.id === uploadFile.id 
+            ? { ...f, progress: 75 }
+            : f
+        )
+      );
       
       const result = await uploadDocument(
         uploadFile.file, 
