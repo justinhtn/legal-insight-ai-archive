@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -93,7 +94,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
           </div>
         </div>
 
-        {/* Document Content - NATIVE SCROLLING */}
+        {/* Document Content - Fixed scrolling */}
         <div className="flex-1 overflow-y-auto p-6">
           <div 
             className="prose max-w-none whitespace-pre-wrap font-mono text-sm leading-relaxed"
@@ -112,27 +113,26 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
           </div>
           <div className="flex-1 overflow-y-auto">
             <div className="p-4 space-y-2">
-                {highlights.map((highlight, index) => (
-                  <Card
-                    key={index}
-                    className={`p-3 cursor-pointer transition-colors ${
-                      currentHighlight === index ? 'bg-yellow-100 border-yellow-300' : 'hover:bg-gray-100'
-                    }`}
-                    onClick={() => scrollToHighlight(index)}
-                  >
-                    <div className="text-sm">
-                      <div className="font-medium text-gray-900 mb-1">
-                        {highlight.page && `Page ${highlight.page}`}
-                        {highlight.lines && ` • ${highlight.lines}`}
-                      </div>
-                      <div className="text-gray-700 line-clamp-3">
-                        "{highlight.text}"
-                      </div>
+              {highlights.map((highlight, index) => (
+                <Card
+                  key={index}
+                  className={`p-3 cursor-pointer transition-colors ${
+                    currentHighlight === index ? 'bg-yellow-100 border-yellow-300' : 'hover:bg-gray-100'
+                  }`}
+                  onClick={() => scrollToHighlight(index)}
+                >
+                  <div className="text-sm">
+                    <div className="font-medium text-gray-900 mb-1">
+                      {highlight.page && `Page ${highlight.page}`}
+                      {highlight.lines && ` • ${highlight.lines}`}
                     </div>
-                  </Card>
-                ))}
-              </div>
-            </ScrollArea>
+                    <div className="text-gray-700 line-clamp-3">
+                      "{highlight.text}"
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
       )}
