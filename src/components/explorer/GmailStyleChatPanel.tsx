@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -295,9 +294,9 @@ const GmailStyleChatPanel: React.FC<GmailStyleChatPanelProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Messages Area - Takes remaining space */}
-      <div className="flex-1 min-h-0">
+    <div className="flex flex-col h-full max-h-full">
+      {/* Messages Area - Use calc to reserve space for input */}
+      <div className="flex-1 overflow-hidden" style={{ height: 'calc(100% - 120px)' }}>
         <ScrollArea className="h-full p-4">
           <div className="space-y-4">
             {filteredMessages.length === 0 && (
@@ -345,9 +344,9 @@ const GmailStyleChatPanel: React.FC<GmailStyleChatPanelProps> = ({
         </ScrollArea>
       </div>
 
-      {/* Input Area - Fixed at bottom */}
-      <div className="border-t bg-white p-4 flex-shrink-0">
-        <div className="flex gap-2 items-end">
+      {/* Input Area - Fixed height at bottom */}
+      <div className="border-t bg-white p-4 flex-shrink-0" style={{ height: '120px', minHeight: '120px' }}>
+        <div className="flex gap-2 items-end h-full">
           <Textarea
             ref={textareaRef}
             value={inputValue}
@@ -355,7 +354,7 @@ const GmailStyleChatPanel: React.FC<GmailStyleChatPanelProps> = ({
             onKeyDown={handleKeyPress}
             placeholder={`Search ${client.name}'s documents...`}
             disabled={isLoading}
-            className="flex-1 resize-none min-h-[40px] max-h-[120px]"
+            className="flex-1 resize-none min-h-[40px] max-h-[80px]"
             rows={1}
             style={{ height: '40px' }}
           />
