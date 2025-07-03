@@ -149,32 +149,28 @@ const DocumentSharingModal: React.FC<DocumentSharingModalProps> = ({
 
     setIsLoading(true);
     try {
-      // First, find the user by email
-      const { data: userData, error: userError } = await supabase
-        .from('profiles') // Assuming you have a profiles table
-        .select('id')
-        .eq('email', newUserEmail.trim())
-        .single();
-
-      if (userError || !userData) {
+      // For MVP, let's just check if the email looks valid
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(userEmail)) {
         toast({
-          title: "User Not Found",
-          description: "No user found with that email address",
+          title: "Invalid Email",
+          description: "Please enter a valid email address",
           variant: "destructive"
         });
         return;
       }
 
-      // Create the share
-      const { error: shareError } = await supabase
-        .from('document_shares')
-        .insert({
-          document_id: documentId,
-          shared_by: currentUserId,
-          shared_with: userData.id,
-          permission_level: newUserPermission
-        });
+      // Show success message for now (sharing tables not implemented)
+      toast({
+        title: "Sharing Coming Soon",
+        description: `Document sharing with ${userEmail} will be available once the sharing system is set up.`,
+      });
+      
+      setNewUserEmail('');
+      return;
 
+      // Code below is unreachable but left for future implementation
+      const shareError: any = null;
       if (shareError) {
         if (shareError.code === '23505') { // Unique constraint violation
           toast({

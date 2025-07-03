@@ -21,7 +21,9 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAccount } from '@/contexts/AccountContext';
 import { format } from 'date-fns';
+import ActiveCollaborators from './ActiveCollaborators';
 
 // Collaborator colors for user identification
 const COLLABORATOR_COLORS = [
@@ -65,11 +67,6 @@ interface CollaborativeDocumentEditorProps {
   documentId: string;
   documentTitle: string;
   initialContent: string;
-  currentUser: {
-    id: string;
-    name: string;
-    email: string;
-  };
   onVersionHistoryToggle: () => void;
   showVersionHistory: boolean;
   onDocumentUpdate?: (content: string) => void;
@@ -80,7 +77,6 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
   documentId,
   documentTitle,
   initialContent,
-  currentUser,
   onVersionHistoryToggle,
   showVersionHistory,
   onDocumentUpdate
@@ -102,10 +98,11 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
   const [fallbackContent, setFallbackContent] = useState(initialContent);
   
   const { toast } = useToast();
+  const { currentProfile, currentAccount } = useAccount();
 
   // Initialize collaborative editing function
   const initializeCollaboration = useCallback(() => {
-    if (!editorRef.current || !monacoRef.current) {
+    if (!editorRef.current || !monacoRef.current || !currentProfile) {
       console.log('Editor not ready for collaboration');
       return;
     }
@@ -121,13 +118,13 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
     const channel = supabase.channel(`document-${documentId}`, {
       config: {
         broadcast: { self: true },
-        presence: { key: currentUser.id }
+        presence: { key: currentProfile.id }
       }
     });
 
     // Listen for document content changes from other users
     channel.on('broadcast', { event: 'document_change' }, (payload: any) => {
-      if (payload.payload.userId !== currentUser.id && editorRef.current) {
+      if (payload.payload.profileId !== currentProfile.id && editorRef.current) {
         const currentContent = editorRef.current.getValue();
         if (currentContent !== payload.payload.content) {
           const position = editorRef.current.getPosition();
@@ -157,9 +154,9 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
         
         // Track user presence
         await channel.track({
-          user_id: currentUser.id,
-          user_name: currentUser.name || currentUser.email,
-          user_email: currentUser.email,
+          profile_id: currentProfile.id,
+          profile_name: currentProfile.display_name,
+          profile_role: currentProfile.role,
           online_at: new Date().toISOString(),
         });
         
@@ -186,7 +183,7 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
             type: 'broadcast',
             event: 'document_change',
             payload: {
-              userId: currentUser.id,
+              profileId: currentProfile.id,
               content,
               timestamp: Date.now()
             }
@@ -207,7 +204,7 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
             type: 'broadcast',
             event: 'cursor_update',
             payload: {
-              userId: currentUser.id,
+              profileId: currentProfile.id,
               position: {
                 lineNumber: position.lineNumber,
                 column: position.column
@@ -249,12 +246,12 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
     
     // Return cleanup function
     return cleanup;
-  }, [documentId, currentUser]);
+  }, [documentId, currentProfile]);
 
   // Helper function to update collaborator cursor positions
   const updateCollaboratorCursor = useCallback((payload: any) => {
     setCollaborators(prev => prev.map(collaborator => 
-      collaborator.id === payload.userId
+      collaborator.id === payload.profileId
         ? { 
             ...collaborator, 
             cursor: {
@@ -270,13 +267,13 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
   const updateCollaboratorsList = useCallback((presenceState: any) => {
     const collaboratorsList: CollaboratorInfo[] = [];
     
-    Object.entries(presenceState).forEach(([userId, presences]: [string, any]) => {
-      if (userId !== currentUser.id && presences.length > 0) {
+    Object.entries(presenceState).forEach(([profileId, presences]: [string, any]) => {
+      if (profileId !== currentProfile?.id && presences.length > 0) {
         const presence = presences[0];
         collaboratorsList.push({
-          id: presence.user_id,
-          name: presence.user_name || 'Anonymous',
-          email: presence.user_email || '',
+          id: presence.profile_id,
+          name: presence.profile_name || 'Anonymous',
+          email: '', // We don't broadcast email for privacy
           color: COLLABORATOR_COLORS[collaboratorsList.length % COLLABORATOR_COLORS.length],
           isActive: true
         });
@@ -284,7 +281,7 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
     });
     
     setCollaborators(collaboratorsList);
-  }, [currentUser.id]);
+  }, [currentProfile?.id]);
 
   // Update document embeddings after save
   const updateDocumentEmbeddings = async (docId: string) => {
@@ -307,7 +304,7 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
   const recordSession = async () => {
     try {
       // Placeholder for when collaborative_sessions table is implemented
-      console.log('Recording collaborative session for user:', currentUser.id);
+      console.log('Recording collaborative session for profile:', currentProfile?.id);
     } catch (error) {
       console.error('Error recording session:', error);
     }
@@ -444,37 +441,12 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
             {isConnected ? "Connected" : "Disconnected"}
           </Badge>
 
-          {/* Collaborators */}
-          {collaborators.length > 0 && (
-            <TooltipProvider>
-              <div className="flex items-center gap-1">
-                <Users className="h-4 w-4 text-gray-500" />
-                <div className="flex -space-x-2">
-                  {collaborators.slice(0, 3).map((collaborator) => (
-                    <Tooltip key={collaborator.id}>
-                      <TooltipTrigger>
-                        <Avatar className="h-6 w-6 border-2 border-white">
-                          <AvatarFallback 
-                            style={{ backgroundColor: collaborator.color }}
-                            className="text-white text-xs"
-                          >
-                            {collaborator.name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{collaborator.name}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
-                  {collaborators.length > 3 && (
-                    <Badge variant="secondary" className="h-6 text-xs">
-                      +{collaborators.length - 3}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </TooltipProvider>
+          {/* Active Collaborators */}
+          {currentProfile && (
+            <ActiveCollaborators 
+              documentId={documentId}
+              currentProfileId={currentProfile.id}
+            />
           )}
 
           <Separator orientation="vertical" className="h-6" />

@@ -330,11 +330,6 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
                   documentId={document.id}
                   documentTitle={document.title}
                   initialContent={currentContent}
-                  currentUser={{
-                    id: currentUser.id,
-                    name: currentUser.name || currentUser.email.split('@')[0],
-                    email: currentUser.email
-                  }}
                   onVersionHistoryToggle={toggleVersionHistory}
                   showVersionHistory={false} // Handled separately
                   onDocumentUpdate={handleDocumentContentUpdate}
