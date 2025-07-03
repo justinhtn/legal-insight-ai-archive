@@ -13,6 +13,7 @@ interface DocumentTabData {
     lines?: string;
   }>;
   query: string;
+  documentId: string;
 }
 
 interface TabbedDocumentViewerProps {
@@ -69,6 +70,8 @@ const TabbedDocumentViewer: React.FC<TabbedDocumentViewerProps> = ({
             highlights={activeTab.highlights}
             query={activeTab.query}
             onClose={() => onTabClose(activeTab.id)}
+            documentId={activeTab.documentId}
+            enableCollaborative={true}
           />
         ) : (
           <div className="h-full flex items-center justify-center bg-gray-50">

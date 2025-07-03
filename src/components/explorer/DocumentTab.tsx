@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, X, Edit3 } from 'lucide-react';
+import CollaborativeDocumentTab from '../collaborative/CollaborativeDocumentTab';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DocumentHighlight {
   text: string;
@@ -16,6 +18,8 @@ interface DocumentTabProps {
   highlights: DocumentHighlight[];
   query: string;
   onClose: () => void;
+  documentId?: string;
+  enableCollaborative?: boolean;
 }
 
 const DocumentTab: React.FC<DocumentTabProps> = ({
@@ -23,15 +27,78 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
   documentContent,
   highlights,
   query,
-  onClose
+  onClose,
+  documentId,
+  enableCollaborative = false
 }) => {
   const [highlightedContent, setHighlightedContent] = useState('');
   const [currentHighlight, setCurrentHighlight] = useState(0);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<'view' | 'collaborate'>('view');
+  const [currentContent, setCurrentContent] = useState(documentContent);
+
+  // Get current user for collaborative features
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    
+    if (enableCollaborative) {
+      getCurrentUser();
+    }
+  }, [enableCollaborative]);
+
+  // Sync initial content
+  useEffect(() => {
+    setCurrentContent(documentContent);
+  }, [documentContent]);
+
+  // Fetch latest content when switching to view mode
+  const fetchLatestContent = async () => {
+    if (documentId) {
+      try {
+        console.log('Fetching latest content for document:', documentId);
+        
+        // Add a small delay to ensure the save has completed
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const { data, error } = await supabase
+          .from('documents')
+          .select('content')
+          .eq('id', documentId)
+          .single();
+        
+        if (error) throw error;
+        if (data?.content) {
+          console.log('Fetched content length:', data.content.length);
+          console.log('Current content length:', currentContent.length);
+          
+          if (data.content !== currentContent) {
+            console.log('Content has changed, updating view');
+            setCurrentContent(data.content);
+          } else {
+            console.log('Content is the same');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching latest content:', error);
+      }
+    }
+  };
+
+  // Fetch latest content when switching to view mode
+  useEffect(() => {
+    if (viewMode === 'view' && documentId) {
+      fetchLatestContent();
+    }
+  }, [viewMode, documentId]);
 
   useEffect(() => {
+    console.log('Processing content for highlights. Current content length:', currentContent.length);
     if (highlights.length > 0) {
       console.log('Processing highlights for document:', highlights);
-      let content = documentContent;
+      let content = currentContent;
       
       // DON'T sort highlights - keep them in original order to maintain index consistency
       highlights.forEach((highlight, index) => {
@@ -41,10 +108,12 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
       });
       
       setHighlightedContent(content);
+      console.log('Set highlighted content length:', content.length);
     } else {
-      setHighlightedContent(documentContent);
+      setHighlightedContent(currentContent);
+      console.log('Set plain content length:', currentContent.length);
     }
-  }, [documentContent, highlights]);
+  }, [currentContent, highlights]);
 
   const scrollToHighlight = useCallback((index: number) => {
     const element = document.getElementById(`highlight-${index}`);
@@ -99,6 +168,41 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
     }
   }, [highlights, scrollToHighlight]);
 
+  // Debug logging
+  console.log('DocumentTab render:', {
+    enableCollaborative,
+    documentId,
+    hasCurrentUser: !!currentUser,
+    viewMode,
+    shouldShowCollaborative: enableCollaborative && documentId && currentUser && viewMode === 'collaborate'
+  });
+
+  // If collaborative editing is enabled and we have the necessary data, show collaborative component
+  if (enableCollaborative && documentId && currentUser && viewMode === 'collaborate') {
+    console.log('Rendering CollaborativeDocumentTab');
+    return (
+      <CollaborativeDocumentTab
+        document={{
+          id: documentId,
+          title: documentTitle,
+          content: documentContent,
+          highlights,
+          query
+        }}
+        currentUser={{
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.user_metadata?.name
+        }}
+        onClose={onClose}
+        onDocumentUpdate={(content) => {
+          console.log('DocumentTab: Document updated callback received:', content?.substring(0, 100) + '...');
+          setCurrentContent(content);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
@@ -115,6 +219,42 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
             )}
           </div>
 
+          {/* Collaborative mode toggle */}
+          {enableCollaborative && documentId && currentUser && (
+            <div className="flex items-center gap-2 mr-4">
+              <Button
+                variant={viewMode === 'view' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  console.log('View button clicked, current content length:', currentContent.length);
+                  setViewMode('view');
+                }}
+              >
+                <Search className="h-3 w-3 mr-1" />
+                View
+              </Button>
+              <Button
+                variant={viewMode === 'collaborate' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  console.log('Edit button clicked, setting viewMode to collaborate');
+                  setViewMode('collaborate');
+                }}
+              >
+                <Edit3 className="h-3 w-3 mr-1" />
+                Edit
+              </Button>
+            </div>
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            className="ml-4"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
         
         {/* Highlight Navigation */}

@@ -29,15 +29,17 @@ const DocumentContent: React.FC = () => {
   if (openTabs.length > 0 && !showOverview) {
     console.log('Rendering TabbedDocumentViewer with tabs:', openTabs.length);
     return (
-      <TabbedDocumentViewer
-        tabs={openTabs}
-        activeTabId={activeTabId}
-        onTabChange={() => {}} // Handled by context
-        onTabClose={() => {}} // Handled by context
-        onShowOverview={() => {}} // Handled by context
-        showOverview={showOverview}
-        showTabsOnly={false}
-      />
+      <div className="h-full overflow-hidden">
+        <TabbedDocumentViewer
+          tabs={openTabs}
+          activeTabId={activeTabId}
+          onTabChange={() => {}} // Handled by context
+          onTabClose={() => {}} // Handled by context
+          onShowOverview={() => {}} // Handled by context
+          showOverview={showOverview}
+          showTabsOnly={false}
+        />
+      </div>
     );
   }
 
