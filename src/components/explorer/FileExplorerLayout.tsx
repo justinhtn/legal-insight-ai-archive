@@ -25,7 +25,11 @@ const FileExplorerLayout: React.FC = () => {
     queryFn: getClients,
   });
 
-  const selectedClient = clients.find(c => c.id === selectedClientId);
+  const selectedClient = clients.find(c => c.id === selectedClientId) || clients[0] || null;
+  
+  console.log('FileExplorerLayout - selectedClientId:', selectedClientId);
+  console.log('FileExplorerLayout - clients:', clients);
+  console.log('FileExplorerLayout - selectedClient:', selectedClient);
 
   const handleToggleChat = () => {
     if (rightPanelOpen && rightPanelMode === 'chat') {
@@ -79,7 +83,7 @@ const FileExplorerLayout: React.FC = () => {
       {/* Main Content Layout - Use CSS Grid for better space distribution */}
       <div className={`flex-1 min-h-0 ${rightPanelOpen ? 'grid grid-cols-[1fr_400px]' : 'flex'}`}>
         {/* Document Content Area */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-auto">
           <DocumentContent />
         </div>
 

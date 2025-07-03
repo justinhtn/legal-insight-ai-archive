@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/integrations/supabase/client";
 import AuthButton from "@/components/AuthButton";
 import SearchResults from "@/components/SearchResults";
@@ -165,6 +165,7 @@ const IndexContent = () => {
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [selectedExplorerClientId, setSelectedExplorerClientId] = useState<string>();
   const { handleFileClick } = useDocumentTabs();
+  const { setSelectedClientId: setFileExplorerClientId } = useFileExplorer();
 
   // Fetch clients for explorer
   const { data: explorerClients = [] } = useQuery({
@@ -222,6 +223,9 @@ const IndexContent = () => {
     } else {
       newExpanded.add(clientId);
       setSelectedExplorerClientId(clientId);
+      // Also set the client in FileExplorer context when expanding
+      setFileExplorerClientId(clientId);
+      console.log('Setting client in FileExplorer context:', clientId);
     }
     setExpandedClients(newExpanded);
   };
@@ -441,7 +445,7 @@ const IndexContent = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="h-screen flex w-full bg-background">
         <Sidebar className="w-64 bg-explorer-background border-r flex-shrink-0">
           <SidebarContent className="p-0">
             <div className="explorer-header">

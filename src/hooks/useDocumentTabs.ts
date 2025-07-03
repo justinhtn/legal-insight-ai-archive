@@ -14,6 +14,7 @@ interface DocumentTabData {
     lines?: string;
   }>;
   query: string;
+  documentId: string;
 }
 
 export const useDocumentTabs = () => {
@@ -76,7 +77,8 @@ export const useDocumentTabs = () => {
       title: document.document_title || document.name,
       content: content,
       highlights: highlights,
-      query: query
+      query: query,
+      documentId: document.id
     };
     
     setOpenTabs(prev => {
@@ -118,7 +120,8 @@ export const useDocumentTabs = () => {
         title: file.name,
         content: content,
         highlights: [],
-        query: ''
+        query: '',
+        documentId: file.id
       };
       
       console.log('Creating new tab for file:', newTab);

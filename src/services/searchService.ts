@@ -14,6 +14,8 @@ export interface SearchResult {
   line_end?: number;
   client?: string;
   matter?: string;
+  relevant_span?: string | null;
+  legal_metadata?: any;
 }
 
 export interface ConsolidatedDocument {
@@ -178,27 +180,40 @@ function getContextTerms(query: string): string[] {
   return terms;
 }
 
-// Generate targeted highlights based on AI response correlation - UPDATED
-function generateAnswerBasedHighlights(userQuery: string, aiResponse: string, chunks: SearchResult[]): Array<{
+// Generate targeted highlights using LLM-extracted spans - UPDATED
+function generateSpanBasedHighlights(userQuery: string, chunks: SearchResult[]): Array<{
   page?: number;
   text: string;
   lines?: string;
   section?: string;
   queryRelevance: number;
+  legal_metadata?: any;
 }> {
-  console.log('Generating answer-based highlights for AI response:', aiResponse.substring(0, 100));
+  console.log('Generating span-based highlights from LLM-extracted spans');
+  console.log('Input chunks for span generation:', chunks.length);
   
-  // Use the new answer matching service
-  const relevantSentences = findRelevantSentences(chunks, aiResponse, 3);
-  console.log('Found relevant sentences:', relevantSentences.length);
+  const chunksWithSpans = chunks.filter(chunk => chunk.relevant_span);
+  console.log('Chunks with relevant spans:', chunksWithSpans.length);
   
-  return relevantSentences.map(sentence => ({
-    page: sentence.page,
-    text: sentence.text,
-    lines: sentence.lines,
-    section: sentence.section,
-    queryRelevance: sentence.relevanceScore
-  }));
+  chunksWithSpans.forEach((chunk, i) => {
+    console.log(`Chunk ${i + 1} span:`, chunk.relevant_span);
+  });
+  
+  const highlights = chunksWithSpans.map(chunk => {
+    const section = detectSection(chunk.content);
+    
+    return {
+      page: chunk.page_number,
+      text: chunk.relevant_span!, // Use the LLM-extracted span
+      lines: chunk.line_start && chunk.line_end ? `${chunk.line_start}-${chunk.line_end}` : undefined,
+      section: section,
+      queryRelevance: 1.0, // High relevance since LLM extracted it
+      legal_metadata: chunk.legal_metadata
+    };
+  });
+  
+  console.log('Generated highlights:', highlights.length);
+  return highlights;
 }
 
 // Extract the most relevant part of content based on query and AI response
@@ -274,7 +289,9 @@ function calculateRelevanceLevel(scores: number[]): 'High' | 'Medium' | 'Low' {
 }
 
 function consolidateSearchResults(chunks: SearchResult[], userQuery: string = '', aiResponse: string = ''): ConsolidatedDocument[] {
-  console.log('Consolidating search results with answer-based highlighting');
+  console.log('Consolidating search results with span-based highlighting');
+  console.log('Input chunks:', chunks.length);
+  console.log('Sample chunk spans:', chunks.slice(0, 3).map(c => ({ id: c.document_id, span: c.relevant_span })));
   
   const documentMap = new Map<string, {
     document_id: string;
@@ -282,7 +299,7 @@ function consolidateSearchResults(chunks: SearchResult[], userQuery: string = ''
     document_file_name: string;
     client: string;
     matter: string;
-    excerpts: Array<{ page?: number; text: string; lines?: string; section?: string; queryRelevance?: number }>;
+    excerpts: Array<{ page?: number; text: string; lines?: string; section?: string; queryRelevance?: number; legal_metadata?: any }>;
     relevance_scores: number[];
   }>();
 
@@ -305,19 +322,24 @@ function consolidateSearchResults(chunks: SearchResult[], userQuery: string = ''
     docData.relevance_scores.push(chunk.similarity);
   });
 
-  // Convert to array and calculate relevance with answer-based highlights
-  return Array.from(documentMap.values()).map(doc => {
+  // Convert to array and calculate relevance with span-based highlights
+  const result = Array.from(documentMap.values()).map(doc => {
     const docChunks = chunks.filter(chunk => chunk.document_id === doc.document_id);
-    const answerBasedHighlights = userQuery && aiResponse 
-      ? generateAnswerBasedHighlights(userQuery, aiResponse, docChunks)
+    const spanBasedHighlights = userQuery 
+      ? generateSpanBasedHighlights(userQuery, docChunks)
       : extractKeyPhrases(docChunks[0]?.content || '', docChunks[0]?.page_number, docChunks[0]?.line_start, docChunks[0]?.line_end);
+    
+    console.log(`Document ${doc.document_title}: Generated ${spanBasedHighlights.length} span highlights`);
     
     return {
       ...doc,
       relevance: calculateRelevanceLevel(doc.relevance_scores),
-      excerpts: answerBasedHighlights.slice(0, 3) // Top 3 most relevant excerpts
+      excerpts: spanBasedHighlights.slice(0, 3) // Top 3 most relevant excerpts
     };
   });
+  
+  console.log('Final consolidated results:', result.length);
+  return result;
 }
 
 export const generateClientContext = async (client: Client): Promise<string> => {

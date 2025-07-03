@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, X, Edit3 } from 'lucide-react';
+import CollaborativeDocumentTab from '../collaborative/CollaborativeDocumentTab';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DocumentHighlight {
   text: string;
@@ -16,6 +18,8 @@ interface DocumentTabProps {
   highlights: DocumentHighlight[];
   query: string;
   onClose: () => void;
+  documentId?: string;
+  enableCollaborative?: boolean;
 }
 
 const DocumentTab: React.FC<DocumentTabProps> = ({
@@ -23,10 +27,26 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
   documentContent,
   highlights,
   query,
-  onClose
+  onClose,
+  documentId,
+  enableCollaborative = false
 }) => {
   const [highlightedContent, setHighlightedContent] = useState('');
   const [currentHighlight, setCurrentHighlight] = useState(0);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<'view' | 'collaborate'>('view');
+
+  // Get current user for collaborative features
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    
+    if (enableCollaborative) {
+      getCurrentUser();
+    }
+  }, [enableCollaborative]);
 
   useEffect(() => {
     if (highlights.length > 0) {
@@ -99,6 +119,30 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
     }
   }, [highlights, scrollToHighlight]);
 
+  // If collaborative editing is enabled and we have the necessary data, show collaborative component
+  if (enableCollaborative && documentId && currentUser && viewMode === 'collaborate') {
+    return (
+      <CollaborativeDocumentTab
+        document={{
+          id: documentId,
+          title: documentTitle,
+          content: documentContent,
+          highlights,
+          query
+        }}
+        currentUser={{
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.user_metadata?.name
+        }}
+        onClose={onClose}
+        onDocumentUpdate={(content) => {
+          console.log('Document updated:', content);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
@@ -115,6 +159,36 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
             )}
           </div>
 
+          {/* Collaborative mode toggle */}
+          {enableCollaborative && documentId && currentUser && (
+            <div className="flex items-center gap-2 mr-4">
+              <Button
+                variant={viewMode === 'view' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('view')}
+              >
+                <Search className="h-3 w-3 mr-1" />
+                View
+              </Button>
+              <Button
+                variant={viewMode === 'collaborate' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('collaborate')}
+              >
+                <Edit3 className="h-3 w-3 mr-1" />
+                Edit
+              </Button>
+            </div>
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            className="ml-4"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
         
         {/* Highlight Navigation */}

@@ -13,6 +13,7 @@ interface DocumentTabData {
     lines?: string;
   }>;
   query: string;
+  documentId: string;
 }
 
 interface TabbedDocumentViewerProps {
@@ -44,7 +45,7 @@ const TabbedDocumentViewer: React.FC<TabbedDocumentViewerProps> = ({
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Content Area - No duplicate tabs here */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-auto">
         {showOverview ? (
           <div className="h-full flex items-center justify-center bg-gray-50">
             <div className="text-center">
@@ -69,6 +70,8 @@ const TabbedDocumentViewer: React.FC<TabbedDocumentViewerProps> = ({
             highlights={activeTab.highlights}
             query={activeTab.query}
             onClose={() => onTabClose(activeTab.id)}
+            documentId={activeTab.documentId}
+            enableCollaborative={true}
           />
         ) : (
           <div className="h-full flex items-center justify-center bg-gray-50">
