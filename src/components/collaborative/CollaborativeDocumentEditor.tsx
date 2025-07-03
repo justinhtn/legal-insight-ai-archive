@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Editor } from '@monaco-editor/react';
-import * as Y from 'yjs';
-import { WebsocketProvider } from 'y-websocket';
-import { MonacoBinding } from 'y-monaco';
+import { Textarea } from '@/components/ui/textarea';
+// Removed YJS imports - using Supabase Realtime instead
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -23,6 +22,12 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+
+// Collaborator colors for user identification
+const COLLABORATOR_COLORS = [
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+  '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+];
 
 interface CollaboratorInfo {
   id: string;
@@ -69,10 +74,6 @@ interface CollaborativeDocumentEditorProps {
   showVersionHistory: boolean;
 }
 
-const COLLABORATOR_COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', 
-  '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'
-];
 
 const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = ({
   documentId,
@@ -84,9 +85,9 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
 }) => {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
-  const yjsDocRef = useRef<Y.Doc | null>(null);
-  const providerRef = useRef<WebsocketProvider | null>(null);
-  const bindingRef = useRef<MonacoBinding | null>(null);
+  const realtimeChannelRef = useRef<any>(null);
+  const lastSaveTimeRef = useRef<number>(Date.now());
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const [collaborators, setCollaborators] = useState<CollaboratorInfo[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -95,83 +96,193 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
   const [versions, setVersions] = useState<DocumentVersion[]>([]);
   const [snapshots, setSnapshots] = useState<DocumentSnapshot[]>([]);
   const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
+  const [editorError, setEditorError] = useState<string | null>(null);
+  const [fallbackContent, setFallbackContent] = useState(initialContent);
   
   const { toast } = useToast();
 
-  // Initialize collaborative editing
-  useEffect(() => {
-    if (!editorRef.current || !monacoRef.current) return;
+  // Initialize collaborative editing function
+  const initializeCollaboration = useCallback(() => {
+    if (!editorRef.current || !monacoRef.current) {
+      console.log('Editor not ready for collaboration');
+      return;
+    }
+    
+    console.log('Initializing collaborative editing...');
 
-    // Create Yjs document
-    const yjsDoc = new Y.Doc();
-    yjsDocRef.current = yjsDoc;
-
-    // Connect to WebSocket provider (you'll need to set up a YJS WebSocket server)
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/yjs`;
-    const provider = new WebsocketProvider(wsUrl, `document-${documentId}`, yjsDoc);
-    providerRef.current = provider;
-
-    // Set up Monaco binding
-    const yText = yjsDoc.getText('monaco');
-    const binding = new MonacoBinding(
-      yText,
-      editorRef.current.getModel(),
-      new Set([editorRef.current]),
-      provider.awareness
-    );
-    bindingRef.current = binding;
-
-    // Set initial content if document is empty
-    if (yText.length === 0 && initialContent) {
-      yText.insert(0, initialContent);
+    // Set initial content in Monaco editor
+    if (initialContent) {
+      editorRef.current.setValue(initialContent);
     }
 
-    // Set up awareness (user presence)
-    provider.awareness.setLocalStateField('user', {
-      id: currentUser.id,
-      name: currentUser.name,
-      email: currentUser.email,
-      color: COLLABORATOR_COLORS[Math.floor(Math.random() * COLLABORATOR_COLORS.length)]
-    });
-
-    // Listen for awareness changes (other users)
-    provider.awareness.on('change', () => {
-      const states = Array.from(provider.awareness.getStates().entries());
-      const collaboratorsList: CollaboratorInfo[] = states
-        .filter(([clientId, state]) => clientId !== provider.awareness.clientID)
-        .map(([clientId, state]) => ({
-          id: state.user?.id || clientId.toString(),
-          name: state.user?.name || 'Anonymous',
-          email: state.user?.email || '',
-          color: state.user?.color || '#999',
-          isActive: true
-        }));
-      
-      setCollaborators(collaboratorsList);
-    });
-
-    // Connection status
-    provider.on('status', (event: any) => {
-      setIsConnected(event.status === 'connected');
-    });
-
-    // Auto-save on changes
-    const autoSaveInterval = setInterval(() => {
-      if (yText.length > 0) {
-        saveVersion(yText.toString(), true);
+    // Set up Supabase Realtime for collaborative editing
+    const channel = supabase.channel(`document-${documentId}`, {
+      config: {
+        broadcast: { self: true },
+        presence: { key: currentUser.id }
       }
-    }, 30000); // Auto-save every 30 seconds
+    });
+
+    // Listen for document content changes from other users
+    channel.on('broadcast', { event: 'document_change' }, (payload: any) => {
+      if (payload.payload.userId !== currentUser.id && editorRef.current) {
+        const currentContent = editorRef.current.getValue();
+        if (currentContent !== payload.payload.content) {
+          const position = editorRef.current.getPosition();
+          editorRef.current.setValue(payload.payload.content);
+          if (position) {
+            editorRef.current.setPosition(position);
+          }
+        }
+      }
+    });
+
+    // Listen for cursor position updates
+    channel.on('broadcast', { event: 'cursor_update' }, (payload: any) => {
+      updateCollaboratorCursor(payload.payload);
+    });
+
+    // Track user presence (who's online)
+    channel.on('presence', { event: 'sync' }, () => {
+      const presenceState = channel.presenceState();
+      updateCollaboratorsList(presenceState);
+    });
+
+    // Subscribe to the channel
+    channel.subscribe(async (status: string) => {
+      if (status === 'SUBSCRIBED') {
+        setIsConnected(true);
+        
+        // Track user presence
+        await channel.track({
+          user_id: currentUser.id,
+          user_name: currentUser.name || currentUser.email,
+          user_email: currentUser.email,
+          online_at: new Date().toISOString(),
+        });
+        
+        console.log('Connected to collaborative editing');
+      } else {
+        setIsConnected(false);
+      }
+    });
+
+    realtimeChannelRef.current = channel;
+
+    // Set up Monaco editor change listener for broadcasting
+    const onContentChange = () => {
+      if (editorRef.current) {
+        const content = editorRef.current.getValue();
+        
+        // Broadcast changes to other users (debounced)
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        
+        saveTimeoutRef.current = setTimeout(() => {
+          channel.send({
+            type: 'broadcast',
+            event: 'document_change',
+            payload: {
+              userId: currentUser.id,
+              content,
+              timestamp: Date.now()
+            }
+          });
+          
+          // Auto-save to database
+          saveVersion(content, true);
+        }, 1000); // Debounce 1 second
+      }
+    };
+
+    // Set up cursor position broadcasting
+    const onCursorChange = () => {
+      if (editorRef.current) {
+        const position = editorRef.current.getPosition();
+        if (position) {
+          channel.send({
+            type: 'broadcast',
+            event: 'cursor_update',
+            payload: {
+              userId: currentUser.id,
+              position: {
+                lineNumber: position.lineNumber,
+                column: position.column
+              },
+              timestamp: Date.now()
+            }
+          });
+        }
+      }
+    };
+
+    // Add Monaco editor event listeners
+    if (editorRef.current) {
+      const model = editorRef.current.getModel();
+      if (model) {
+        const contentChangeDisposable = model.onDidChangeContent(onContentChange);
+        const cursorChangeDisposable = editorRef.current.onDidChangeCursorPosition(onCursorChange);
+        
+        // Store disposables for cleanup
+        realtimeChannelRef.current.disposables = [contentChangeDisposable, cursorChangeDisposable];
+      }
+    }
 
     // Record collaborative session
     recordSession();
 
     return () => {
-      clearInterval(autoSaveInterval);
-      binding?.destroy();
-      provider?.disconnect();
-      yjsDoc?.destroy();
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      if (realtimeChannelRef.current) {
+        // Clean up event listeners
+        if (realtimeChannelRef.current.disposables) {
+          realtimeChannelRef.current.disposables.forEach((disposable: any) => disposable.dispose());
+        }
+        supabase.removeChannel(realtimeChannelRef.current);
+      }
     };
+    
+    // Return cleanup function
+    return cleanup;
   }, [documentId, currentUser]);
+
+  // Helper function to update collaborator cursor positions
+  const updateCollaboratorCursor = useCallback((payload: any) => {
+    setCollaborators(prev => prev.map(collaborator => 
+      collaborator.id === payload.userId
+        ? { 
+            ...collaborator, 
+            cursor: {
+              line: payload.position.lineNumber,
+              column: payload.position.column
+            }
+          }
+        : collaborator
+    ));
+  }, []);
+
+  // Helper function to update collaborators list from presence state
+  const updateCollaboratorsList = useCallback((presenceState: any) => {
+    const collaboratorsList: CollaboratorInfo[] = [];
+    
+    Object.entries(presenceState).forEach(([userId, presences]: [string, any]) => {
+      if (userId !== currentUser.id && presences.length > 0) {
+        const presence = presences[0];
+        collaboratorsList.push({
+          id: presence.user_id,
+          name: presence.user_name || 'Anonymous',
+          email: presence.user_email || '',
+          color: COLLABORATOR_COLORS[collaboratorsList.length % COLLABORATOR_COLORS.length],
+          isActive: true
+        });
+      }
+    });
+    
+    setCollaborators(collaboratorsList);
+  }, [currentUser.id]);
 
   // Record collaborative session in database
   const recordSession = async () => {
@@ -202,7 +313,7 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
           created_by: currentUser.id,
           is_auto_save: isAutoSave,
           change_summary: isAutoSave ? 'Auto-save' : 'Manual save',
-          content_delta: yjsDocRef.current ? Y.encodeStateAsUpdate(yjsDocRef.current) : null
+          content_delta: null // No YJS delta needed for Supabase Realtime approach
         })
         .select()
         .single();
@@ -241,11 +352,11 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
 
   // Create snapshot
   const createSnapshot = async (label: string, description?: string) => {
-    if (!yjsDocRef.current) return;
+    if (!editorRef.current) return;
 
     setIsCreatingSnapshot(true);
     try {
-      const content = yjsDocRef.current.getText('monaco').toString();
+      const content = editorRef.current.getValue();
       
       // First create a version
       const { data: versionData, error: versionError } = await supabase
@@ -336,8 +447,8 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
 
   // Manual save
   const handleSave = () => {
-    if (yjsDocRef.current) {
-      const content = yjsDocRef.current.getText('monaco').toString();
+    if (editorRef.current) {
+      const content = editorRef.current.getValue();
       saveVersion(content, false);
     }
   };
@@ -443,29 +554,78 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
       )}
 
       {/* Editor */}
-      <div className="flex-1">
-        <Editor
-          defaultLanguage="plaintext"
-          defaultValue={initialContent}
-          theme="vs"
-          options={{
-            fontSize: 14,
-            fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-            lineNumbers: 'on',
-            wordWrap: 'on',
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            folding: false,
-            renderWhitespace: 'none',
-            rulers: [80],
-            bracketPairColorization: { enabled: false }
-          }}
-          onMount={(editor, monaco) => {
-            editorRef.current = editor;
-            monacoRef.current = monaco;
-          }}
-        />
+      <div className="flex-1 h-full relative">
+        {editorError ? (
+          // Fallback textarea if Monaco fails
+          <div className="w-full h-full p-4">
+            <div className="text-red-600 mb-2 text-sm">
+              Monaco Editor failed to load. Using fallback editor.
+            </div>
+            <Textarea
+              value={fallbackContent}
+              onChange={(e) => {
+                setFallbackContent(e.target.value);
+                // Trigger save after a delay
+                setTimeout(() => saveVersion(e.target.value, true), 1000);
+              }}
+              className="w-full h-full resize-none font-mono text-sm"
+              placeholder="Document content..."
+            />
+          </div>
+        ) : (
+          <div className="w-full h-full">
+            <Editor
+              height="100%"
+              width="100%"
+              defaultLanguage="plaintext"
+              value={initialContent}
+              theme="vs-light"
+              loading={<div className="flex items-center justify-center h-full text-gray-500">Loading Monaco Editor...</div>}
+              options={{
+                fontSize: 14,
+                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                lineNumbers: 'on',
+                wordWrap: 'on',
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                folding: false,
+                renderWhitespace: 'none',
+                rulers: [80],
+                bracketPairColorization: { enabled: false },
+                readOnly: false
+              }}
+              onMount={(editor, monaco) => {
+                console.log('Monaco Editor mounted successfully!', editor);
+                editorRef.current = editor;
+                monacoRef.current = monaco;
+                setIsConnected(true);
+                
+                // Set initial content after mounting
+                if (initialContent) {
+                  console.log('Setting initial content:', initialContent.substring(0, 100) + '...');
+                  editor.setValue(initialContent);
+                }
+                
+                // Initialize collaborative features after Monaco is ready
+                setTimeout(() => {
+                  console.log('Initializing collaboration from onMount');
+                  initializeCollaboration();
+                }, 100);
+              }}
+              onChange={(value) => {
+                console.log('Editor content changed:', value?.substring(0, 50) + '...');
+                if (value !== undefined) {
+                  setFallbackContent(value);
+                }
+              }}
+              onError={(error) => {
+                console.error('Monaco Editor error:', error);
+                setEditorError(error.toString());
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Version History Sidebar (if enabled) */}

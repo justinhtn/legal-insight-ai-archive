@@ -119,8 +119,18 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
     }
   }, [highlights, scrollToHighlight]);
 
+  // Debug logging
+  console.log('DocumentTab render:', {
+    enableCollaborative,
+    documentId,
+    hasCurrentUser: !!currentUser,
+    viewMode,
+    shouldShowCollaborative: enableCollaborative && documentId && currentUser && viewMode === 'collaborate'
+  });
+
   // If collaborative editing is enabled and we have the necessary data, show collaborative component
   if (enableCollaborative && documentId && currentUser && viewMode === 'collaborate') {
+    console.log('Rendering CollaborativeDocumentTab');
     return (
       <CollaborativeDocumentTab
         document={{
@@ -173,7 +183,10 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
               <Button
                 variant={viewMode === 'collaborate' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setViewMode('collaborate')}
+                onClick={() => {
+                  console.log('Edit button clicked, setting viewMode to collaborate');
+                  setViewMode('collaborate');
+                }}
               >
                 <Edit3 className="h-3 w-3 mr-1" />
                 Edit
