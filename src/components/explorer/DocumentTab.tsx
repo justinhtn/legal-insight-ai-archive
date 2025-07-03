@@ -35,6 +35,7 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
   const [currentHighlight, setCurrentHighlight] = useState(0);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'view' | 'collaborate'>('view');
+  const [currentContent, setCurrentContent] = useState(documentContent);
 
   // Get current user for collaborative features
   useEffect(() => {
@@ -48,10 +49,56 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
     }
   }, [enableCollaborative]);
 
+  // Sync initial content
   useEffect(() => {
+    setCurrentContent(documentContent);
+  }, [documentContent]);
+
+  // Fetch latest content when switching to view mode
+  const fetchLatestContent = async () => {
+    if (documentId) {
+      try {
+        console.log('Fetching latest content for document:', documentId);
+        
+        // Add a small delay to ensure the save has completed
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const { data, error } = await supabase
+          .from('documents')
+          .select('content')
+          .eq('id', documentId)
+          .single();
+        
+        if (error) throw error;
+        if (data?.content) {
+          console.log('Fetched content length:', data.content.length);
+          console.log('Current content length:', currentContent.length);
+          
+          if (data.content !== currentContent) {
+            console.log('Content has changed, updating view');
+            setCurrentContent(data.content);
+          } else {
+            console.log('Content is the same');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching latest content:', error);
+      }
+    }
+  };
+
+  // Fetch latest content when switching to view mode
+  useEffect(() => {
+    if (viewMode === 'view' && documentId) {
+      fetchLatestContent();
+    }
+  }, [viewMode, documentId]);
+
+  useEffect(() => {
+    console.log('Processing content for highlights. Current content length:', currentContent.length);
     if (highlights.length > 0) {
       console.log('Processing highlights for document:', highlights);
-      let content = documentContent;
+      let content = currentContent;
       
       // DON'T sort highlights - keep them in original order to maintain index consistency
       highlights.forEach((highlight, index) => {
@@ -61,10 +108,12 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
       });
       
       setHighlightedContent(content);
+      console.log('Set highlighted content length:', content.length);
     } else {
-      setHighlightedContent(documentContent);
+      setHighlightedContent(currentContent);
+      console.log('Set plain content length:', currentContent.length);
     }
-  }, [documentContent, highlights]);
+  }, [currentContent, highlights]);
 
   const scrollToHighlight = useCallback((index: number) => {
     const element = document.getElementById(`highlight-${index}`);
@@ -147,7 +196,8 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
         }}
         onClose={onClose}
         onDocumentUpdate={(content) => {
-          console.log('Document updated:', content);
+          console.log('DocumentTab: Document updated callback received:', content?.substring(0, 100) + '...');
+          setCurrentContent(content);
         }}
       />
     );
@@ -175,7 +225,10 @@ const DocumentTab: React.FC<DocumentTabProps> = ({
               <Button
                 variant={viewMode === 'view' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setViewMode('view')}
+                onClick={() => {
+                  console.log('View button clicked, current content length:', currentContent.length);
+                  setViewMode('view');
+                }}
               >
                 <Search className="h-3 w-3 mr-1" />
                 View

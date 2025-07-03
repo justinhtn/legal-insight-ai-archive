@@ -72,6 +72,7 @@ interface CollaborativeDocumentEditorProps {
   };
   onVersionHistoryToggle: () => void;
   showVersionHistory: boolean;
+  onDocumentUpdate?: (content: string) => void;
 }
 
 
@@ -81,7 +82,8 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
   initialContent,
   currentUser,
   onVersionHistoryToggle,
-  showVersionHistory
+  showVersionHistory,
+  onDocumentUpdate
 }) => {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
@@ -284,19 +286,28 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
     setCollaborators(collaboratorsList);
   }, [currentUser.id]);
 
-  // Record collaborative session in database
+  // Update document embeddings after save
+  const updateDocumentEmbeddings = async (docId: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('process-document', {
+        body: { documentId: docId, updateEmbeddings: true }
+      });
+      
+      if (error) {
+        console.error('Error updating embeddings:', error);
+      } else {
+        console.log('Embeddings update triggered successfully');
+      }
+    } catch (err) {
+      console.error('Failed to trigger embedding update:', err);
+    }
+  };
+
+  // Record collaborative session in database (placeholder)
   const recordSession = async () => {
     try {
-      const userColor = COLLABORATOR_COLORS[Math.floor(Math.random() * COLLABORATOR_COLORS.length)];
-      
-      await supabase
-        .from('collaborative_sessions')
-        .insert({
-          document_id: documentId,
-          user_id: currentUser.id,
-          user_color: userColor,
-          is_active: true
-        });
+      // Placeholder for when collaborative_sessions table is implemented
+      console.log('Recording collaborative session for user:', currentUser.id);
     } catch (error) {
       console.error('Error recording session:', error);
     }
@@ -305,19 +316,15 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
   // Save document version
   const saveVersion = async (content: string, isAutoSave: boolean = false) => {
     try {
-      const { data, error } = await supabase
-        .from('document_versions')
-        .insert({
-          document_id: documentId,
+      // Simply update the main documents table with latest content
+      const { error } = await supabase
+        .from('documents')
+        .update({ 
           content,
-          created_by: currentUser.id,
-          is_auto_save: isAutoSave,
-          change_summary: isAutoSave ? 'Auto-save' : 'Manual save',
-          content_delta: null // No YJS delta needed for Supabase Realtime approach
+          updated_at: new Date().toISOString()
         })
-        .select()
-        .single();
-
+        .eq('id', documentId);
+      
       if (error) throw error;
 
       setLastSaved(new Date());
@@ -325,74 +332,38 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
       if (!isAutoSave) {
         toast({
           title: "Document Saved",
-          description: `Version ${data.version_number} saved successfully`,
+          description: "Document saved successfully",
         });
+        
+        // Update embeddings if save was successful
+        console.log('Triggering embedding update for document:', documentId);
+        updateDocumentEmbeddings(documentId);
       }
 
-      // Update document's current version
-      await supabase
-        .from('documents')
-        .update({
-          content,
-          current_version: data.version_number,
-          last_collaboration_activity: new Date().toISOString()
-        })
-        .eq('id', documentId);
-
-      loadVersions();
     } catch (error) {
-      console.error('Error saving version:', error);
+      console.error('Error saving document:', error);
       toast({
         title: "Save Error",
-        description: "Failed to save document version",
+        description: "Failed to save document",
         variant: "destructive"
       });
     }
   };
 
-  // Create snapshot
+  // Create snapshot (placeholder - snapshots table doesn't exist yet)
   const createSnapshot = async (label: string, description?: string) => {
     if (!editorRef.current) return;
 
     setIsCreatingSnapshot(true);
     try {
+      // For now, just save the current document content
       const content = editorRef.current.getValue();
-      
-      // First create a version
-      const { data: versionData, error: versionError } = await supabase
-        .from('document_versions')
-        .insert({
-          document_id: documentId,
-          content,
-          created_by: currentUser.id,
-          is_auto_save: false,
-          change_summary: `Snapshot: ${label}`,
-          content_delta: Y.encodeStateAsUpdate(yjsDocRef.current)
-        })
-        .select()
-        .single();
-
-      if (versionError) throw versionError;
-
-      // Then create the snapshot
-      const { error: snapshotError } = await supabase
-        .from('document_snapshots')
-        .insert({
-          document_id: documentId,
-          version_id: versionData.id,
-          label,
-          description,
-          created_by: currentUser.id
-        });
-
-      if (snapshotError) throw snapshotError;
+      await saveVersion(content, false);
 
       toast({
         title: "Snapshot Created",
-        description: `"${label}" snapshot saved successfully`,
+        description: `"${label}" saved to document (snapshot tables not yet implemented)`,
       });
-
-      loadSnapshots();
     } catch (error) {
       console.error('Error creating snapshot:', error);
       toast({
@@ -405,44 +376,16 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
     }
   };
 
-  // Load versions
+  // Load versions (placeholder - versions table doesn't exist yet)
   const loadVersions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('document_versions')
-        .select(`
-          *,
-          created_by_user:created_by(email)
-        `)
-        .eq('document_id', documentId)
-        .order('version_number', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      setVersions(data || []);
-    } catch (error) {
-      console.error('Error loading versions:', error);
-    }
+    // Placeholder for when version tables are implemented
+    setVersions([]);
   };
 
-  // Load snapshots
+  // Load snapshots (placeholder - snapshots table doesn't exist yet)
   const loadSnapshots = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('document_snapshots')
-        .select(`
-          *,
-          created_by_user:created_by(email),
-          version:document_versions(version_number)
-        `)
-        .eq('document_id', documentId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setSnapshots(data || []);
-    } catch (error) {
-      console.error('Error loading snapshots:', error);
-    }
+    // Placeholder for when snapshot tables are implemented
+    setSnapshots([]);
   };
 
   // Manual save
@@ -476,8 +419,17 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
     loadSnapshots();
   }, [documentId]);
 
+  // Update editor content when initialContent changes
+  useEffect(() => {
+    if (editorRef.current && initialContent !== editorRef.current.getValue()) {
+      console.log('Updating editor content due to initialContent change');
+      editorRef.current.setValue(initialContent);
+      setFallbackContent(initialContent);
+    }
+  }, [initialContent]);
+
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-white overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center justify-between p-3 border-b bg-gray-50">
         <div className="flex items-center gap-3">
@@ -554,7 +506,7 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
       )}
 
       {/* Editor */}
-      <div className="flex-1 h-full relative">
+      <div className="flex-1 relative overflow-hidden">
         {editorError ? (
           // Fallback textarea if Monaco fails
           <div className="w-full h-full p-4">
@@ -614,9 +566,12 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
                 }, 100);
               }}
               onChange={(value) => {
-                console.log('Editor content changed:', value?.substring(0, 50) + '...');
+                console.log('CollaborativeDocumentEditor: Editor content changed:', value?.substring(0, 50) + '...');
                 if (value !== undefined) {
                   setFallbackContent(value);
+                  // Notify parent component of content change
+                  console.log('CollaborativeDocumentEditor: Calling onDocumentUpdate with:', value?.substring(0, 50) + '...');
+                  onDocumentUpdate?.(value);
                 }
               }}
               onError={(error) => {

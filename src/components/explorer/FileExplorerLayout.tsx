@@ -81,9 +81,9 @@ const FileExplorerLayout: React.FC = () => {
       {openTabs.length > 0 && <DocumentTabManager />}
 
       {/* Main Content Layout - Use CSS Grid for better space distribution */}
-      <div className={`flex-1 min-h-0 ${rightPanelOpen ? 'grid grid-cols-[1fr_400px]' : 'flex'}`}>
+      <div className={`flex-1 min-h-0 ${rightPanelOpen ? 'grid grid-cols-[1fr_400px] gap-0' : 'flex'}`}>
         {/* Document Content Area */}
-        <div className="min-w-0 flex-1 overflow-auto">
+        <div className={`min-w-0 overflow-hidden ${rightPanelOpen ? '' : 'flex-1'}`}>
           <DocumentContent />
         </div>
 

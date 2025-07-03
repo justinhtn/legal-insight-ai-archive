@@ -56,6 +56,7 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
   const [isCollaborative, setIsCollaborative] = useState(true);
   const [documentLock, setDocumentLock] = useState<any>(null);
   const [collaboratorCount, setCollaboratorCount] = useState(0);
+  const [currentContent, setCurrentContent] = useState(document.content);
   
   const { toast } = useToast();
 
@@ -186,9 +187,16 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
     }
   };
 
+  const handleDocumentContentUpdate = (content: string) => {
+    console.log('CollaborativeDocumentTab: Document content updated, length:', content.length);
+    setCurrentContent(content);
+    onDocumentUpdate?.(content);
+  };
+
   const handleVersionRestore = (content: string) => {
     // This would restore the content in the collaborative editor
-    onDocumentUpdate?.(content);
+    console.log('CollaborativeDocumentTab: Version restore, calling onDocumentUpdate');
+    handleDocumentContentUpdate(content);
     toast({
       title: "Version Restored",
       description: "Document has been restored to the selected version",
@@ -296,7 +304,7 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
       <div className="flex-1 flex">
         {/* Main content area */}
         <div className="flex-1 flex flex-col">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'edit' | 'view')}>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'edit' | 'view')} className="flex flex-col h-full">
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0">
               <TabsTrigger 
                 value="edit" 
@@ -316,12 +324,12 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="edit" className="flex-1 m-0">
+            <TabsContent value="edit" className="flex-1 m-0 h-full overflow-hidden">
               {isCollaborative && !isLocked ? (
                 <CollaborativeDocumentEditor
                   documentId={document.id}
                   documentTitle={document.title}
-                  initialContent={document.content}
+                  initialContent={currentContent}
                   currentUser={{
                     id: currentUser.id,
                     name: currentUser.name || currentUser.email.split('@')[0],
@@ -329,6 +337,7 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
                   }}
                   onVersionHistoryToggle={toggleVersionHistory}
                   showVersionHistory={false} // Handled separately
+                  onDocumentUpdate={handleDocumentContentUpdate}
                 />
               ) : (
                 <div className="flex-1 flex items-center justify-center bg-gray-50">
@@ -349,7 +358,7 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
             <TabsContent value="view" className="flex-1 m-0">
               <div className="h-full p-6 overflow-auto">
                 <div className="prose prose-sm max-w-none font-mono text-sm leading-relaxed whitespace-pre-wrap">
-                  {document.content}
+                  {currentContent}
                 </div>
               </div>
             </TabsContent>

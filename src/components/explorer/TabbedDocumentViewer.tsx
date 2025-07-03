@@ -45,7 +45,7 @@ const TabbedDocumentViewer: React.FC<TabbedDocumentViewerProps> = ({
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Content Area - No duplicate tabs here */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-hidden">
         {showOverview ? (
           <div className="h-full flex items-center justify-center bg-gray-50">
             <div className="text-center">
