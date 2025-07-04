@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   FileText, 
   Users, 
@@ -50,7 +49,6 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
   onClose,
   onDocumentUpdate
 }) => {
-  const [activeTab, setActiveTab] = useState<'edit' | 'view'>('edit');
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showSharingModal, setShowSharingModal] = useState(false);
   const [isCollaborative, setIsCollaborative] = useState(true);
@@ -65,42 +63,53 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
     checkDocumentLock();
     getCollaboratorCount();
     
-    // Set up real-time listeners for collaborative sessions
-    const collaborationChannel = supabase
-      .channel(`document-${document.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'collaborative_sessions',
-          filter: `document_id=eq.${document.id}`
-        },
-        () => {
-          getCollaboratorCount();
-        }
-      )
-      .subscribe();
+    // Set up real-time listeners for collaborative sessions (if tables exist)
+    let collaborationChannel: any = null;
+    let lockChannel: any = null;
+    
+    try {
+      collaborationChannel = supabase
+        .channel(`document-${document.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'collaborative_sessions',
+            filter: `document_id=eq.${document.id}`
+          },
+          () => {
+            getCollaboratorCount();
+          }
+        )
+        .subscribe();
 
-    const lockChannel = supabase
-      .channel(`document-locks-${document.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'document_locks',
-          filter: `document_id=eq.${document.id}`
-        },
-        () => {
-          checkDocumentLock();
-        }
-      )
-      .subscribe();
+      lockChannel = supabase
+        .channel(`document-locks-${document.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'document_locks',
+            filter: `document_id=eq.${document.id}`
+          },
+          () => {
+            checkDocumentLock();
+          }
+        )
+        .subscribe();
+    } catch (error) {
+      console.log('Real-time listeners not available, continuing without them');
+    }
 
     return () => {
-      collaborationChannel.unsubscribe();
-      lockChannel.unsubscribe();
+      try {
+        collaborationChannel?.unsubscribe();
+        lockChannel?.unsubscribe();
+      } catch (error) {
+        console.log('Error unsubscribing channels, ignoring');
+      }
     };
   }, [document.id]);
 
@@ -115,12 +124,15 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
         .single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-        throw error;
+        // Table might not exist, ignore silently
+        console.log('Document locks table not available, skipping lock check');
+        return;
       }
 
       setDocumentLock(data);
     } catch (error) {
-      console.error('Error checking document lock:', error);
+      // Silently handle missing table errors
+      console.log('Document lock check skipped - table not available');
     }
   };
 
@@ -133,11 +145,18 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
         .eq('is_active', true)
         .gte('last_activity', new Date(Date.now() - 5 * 60 * 1000).toISOString()); // Active in last 5 minutes
 
-      if (error) throw error;
+      if (error) {
+        // Table might not exist, use fallback count
+        console.log('Collaborative sessions table not available, using fallback');
+        setCollaboratorCount(1); // At least current user
+        return;
+      }
 
       setCollaboratorCount(data?.length || 0);
     } catch (error) {
-      console.error('Error getting collaborator count:', error);
+      // Silently handle missing table errors
+      console.log('Collaborator count check skipped - table not available');
+      setCollaboratorCount(1); // Default to current user
     }
   };
 
@@ -220,144 +239,35 @@ const CollaborativeDocumentTab: React.FC<CollaborativeDocumentTabProps> = ({
 
   return (
     <div className="h-full flex flex-col bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b bg-gray-50">
-        <div className="flex items-center gap-3">
-          <FileText className="h-5 w-5 text-gray-500" />
-          <h2 className="font-semibold text-gray-900 truncate">{document.title}</h2>
-          
-          {/* Status indicators */}
-          <div className="flex items-center gap-2">
-            {isCollaborative && (
-              <Badge variant="secondary" className="text-xs">
-                <Users className="h-3 w-3 mr-1" />
-                {collaboratorCount} active
-              </Badge>
-            )}
-            
-            {isLocked && (
-              <Badge variant="destructive" className="text-xs">
-                <Lock className="h-3 w-3 mr-1" />
-                Locked by {documentLock.user?.email}
-              </Badge>
-            )}
-            
-            {isLockedByCurrentUser && (
-              <Badge variant="default" className="text-xs">
-                <Lock className="h-3 w-3 mr-1" />
-                You locked this
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Lock/Unlock toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleDocumentLock}
-            disabled={isLocked}
-          >
-            {documentLock ? (
-              <>
-                <Unlock className="h-3 w-3 mr-1" />
-                Unlock
-              </>
-            ) : (
-              <>
-                <Lock className="h-3 w-3 mr-1" />
-                Lock
-              </>
-            )}
-          </Button>
-
-          {/* Share button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowSharingModal(true)}
-          >
-            <Share2 className="h-3 w-3 mr-1" />
-            Share
-          </Button>
-
-          {/* Version History toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleVersionHistory}
-            className={showVersionHistory ? 'bg-blue-50 border-blue-300' : ''}
-          >
-            <History className="h-3 w-3 mr-1" />
-            History
-          </Button>
-
-          {/* Close button */}
-          <Button variant="outline" size="sm" onClick={onClose}>
-            ×
-          </Button>
-        </div>
-      </div>
 
       {/* Content */}
       <div className="flex-1 flex">
         {/* Main content area */}
         <div className="flex-1 flex flex-col">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'edit' | 'view')} className="flex flex-col h-full">
-            <TabsList className="w-full justify-start border-b rounded-none h-auto p-0">
-              <TabsTrigger 
-                value="edit" 
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent"
-                disabled={isLocked}
-              >
-                <Edit3 className="h-4 w-4 mr-2" />
-                Edit
-                {isLocked && <Lock className="h-3 w-3 ml-2 text-red-500" />}
-              </TabsTrigger>
-              <TabsTrigger 
-                value="view"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent"
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                View Only
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="edit" className="flex-1 m-0 h-full overflow-hidden">
-              {isCollaborative && !isLocked ? (
-                <CollaborativeDocumentEditor
-                  documentId={document.id}
-                  documentTitle={document.title}
-                  initialContent={currentContent}
-                  onVersionHistoryToggle={toggleVersionHistory}
-                  showVersionHistory={false} // Handled separately
-                  onDocumentUpdate={handleDocumentContentUpdate}
-                />
-              ) : (
-                <div className="flex-1 flex items-center justify-center bg-gray-50">
-                  <div className="text-center text-gray-500">
-                    <Lock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <h3 className="text-lg font-medium mb-2">Document Locked</h3>
-                    <p className="text-sm">
-                      {isLocked 
-                        ? `This document is locked by ${documentLock.user?.email}` 
-                        : 'Collaborative editing is not available'
-                      }
-                    </p>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="view" className="flex-1 m-0">
-              <div className="h-full p-6 overflow-auto">
-                <div className="prose prose-sm max-w-none font-mono text-sm leading-relaxed whitespace-pre-wrap">
-                  {currentContent}
-                </div>
+          {/* Direct Collaborative Editor - No more tabs */}
+          {isCollaborative && !isLocked ? (
+            <CollaborativeDocumentEditor
+              documentId={document.id}
+              documentTitle={document.title}
+              initialContent={currentContent}
+              onVersionHistoryToggle={toggleVersionHistory}
+              showVersionHistory={false} // Handled separately
+              onDocumentUpdate={handleDocumentContentUpdate}
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-center bg-gray-50">
+              <div className="text-center text-gray-500">
+                <Lock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-medium mb-2">Document Locked</h3>
+                <p className="text-sm">
+                  {isLocked 
+                    ? `This document is locked by ${documentLock?.user?.email}` 
+                    : 'Collaborative editing is not available'
+                  }
+                </p>
               </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
         </div>
 
         {/* Version History Sidebar */}

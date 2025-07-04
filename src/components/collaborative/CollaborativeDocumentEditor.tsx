@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { 
   Save, 
   Users, 
@@ -17,7 +18,22 @@ import {
   Camera,
   FileText,
   Clock,
-  Eye
+  Eye,
+  Share,
+  Bold,
+  Italic,
+  Underline,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  List,
+  ListOrdered,
+  Type,
+  Copy,
+  Clipboard,
+  Edit3,
+  ChevronDown,
+  MessageSquare
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -96,18 +112,34 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
   const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [fallbackContent, setFallbackContent] = useState(initialContent);
+  const [cursorDecorations, setCursorDecorations] = useState<string[]>([]);
   
   const { toast } = useToast();
   const { currentProfile, currentAccount } = useAccount();
 
   // Initialize collaborative editing function
-  const initializeCollaboration = useCallback(() => {
-    if (!editorRef.current || !monacoRef.current || !currentProfile) {
-      console.log('Editor not ready for collaboration');
+  const initializeCollaboration = useCallback(async () => {
+    console.log('🚀 initializeCollaboration called');
+    console.log('🚀 editorRef.current:', !!editorRef.current);
+    console.log('🚀 monacoRef.current:', !!monacoRef.current);
+    console.log('🚀 currentProfile:', currentProfile);
+    
+    // Get current user directly from Supabase
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    console.log('🚀 Supabase user:', user);
+    console.log('🚀 Auth error:', authError);
+    
+    if (!editorRef.current || !monacoRef.current) {
+      console.log('❌ Editor not ready for collaboration - missing editor/monaco');
       return;
     }
     
-    console.log('Initializing collaborative editing...');
+    if (!user) {
+      console.log('❌ No authenticated user found');
+      return;
+    }
+    
+    console.log('✅ Initializing collaborative editing with user:', user.email);
 
     // Set initial content in Monaco editor
     if (initialContent) {
@@ -118,27 +150,56 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
     const channel = supabase.channel(`document-${documentId}`, {
       config: {
         broadcast: { self: true },
-        presence: { key: currentProfile.id }
+        presence: { key: user.id }
       }
     });
 
+    console.log('🔄 Setting up collaborative channel for document:', documentId);
+    console.log('🔄 Current user:', user);
+
     // Listen for document content changes from other users
     channel.on('broadcast', { event: 'document_change' }, (payload: any) => {
-      if (payload.payload.profileId !== currentProfile.id && editorRef.current) {
+      console.log('📡 Received document_change broadcast:', payload);
+      console.log('📡 My user ID:', user.id);
+      console.log('📡 Sender user ID:', payload.payload.userId);
+      
+      if (payload.payload.userId !== user.id && editorRef.current) {
         const currentContent = editorRef.current.getValue();
+        console.log('📡 Incoming content length:', payload.payload.content?.length);
+        console.log('📡 Current content length:', currentContent.length);
+        
         if (currentContent !== payload.payload.content) {
+          console.log('📡 Content differs, updating editor');
           const position = editorRef.current.getPosition();
           editorRef.current.setValue(payload.payload.content);
           if (position) {
             editorRef.current.setPosition(position);
           }
+        } else {
+          console.log('📡 Content is the same, no update needed');
         }
+      } else if (payload.payload.userId === user.id) {
+        console.log('📡 Ignoring own broadcast');
+      } else {
+        console.log('📡 Editor not ready or other issue');
       }
     });
 
     // Listen for cursor position updates
     channel.on('broadcast', { event: 'cursor_update' }, (payload: any) => {
       updateCollaboratorCursor(payload.payload);
+    });
+
+    // Listen for test messages (debug)
+    channel.on('broadcast', { event: 'test_message' }, (payload: any) => {
+      console.log('🧪 Received test message:', payload);
+      if (payload.payload.userId !== user.id) {
+        toast({
+          title: "Test Message Received",
+          description: payload.payload.message,
+          duration: 3000,
+        });
+      }
     });
 
     // Track user presence (who's online)
@@ -149,19 +210,32 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
 
     // Subscribe to the channel
     channel.subscribe(async (status: string) => {
+      console.log('🔔 Channel subscription status:', status);
+      console.log('🔔 Channel name:', `document-${documentId}`);
+      
       if (status === 'SUBSCRIBED') {
         setIsConnected(true);
         
         // Track user presence
-        await channel.track({
-          profile_id: currentProfile.id,
-          profile_name: currentProfile.display_name,
-          profile_role: currentProfile.role,
+        const presenceData = {
+          user_id: user.id,
+          user_email: user.email,
+          user_name: user.user_metadata?.name || user.email,
           online_at: new Date().toISOString(),
-        });
+        };
         
-        console.log('Connected to collaborative editing');
+        console.log('🔔 Tracking presence with data:', presenceData);
+        await channel.track(presenceData);
+        
+        console.log('✅ Connected to collaborative editing channel');
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('❌ Channel error occurred');
+        setIsConnected(false);
+      } else if (status === 'TIMED_OUT') {
+        console.error('⏰ Channel subscription timed out');
+        setIsConnected(false);
       } else {
+        console.log('🔄 Channel status:', status);
         setIsConnected(false);
       }
     });
@@ -179,11 +253,14 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
         }
         
         saveTimeoutRef.current = setTimeout(() => {
+          console.log('📤 Broadcasting document change from user:', user.id);
+          console.log('📤 Content length being broadcast:', content.length);
+          
           channel.send({
             type: 'broadcast',
             event: 'document_change',
             payload: {
-              profileId: currentProfile.id,
+              userId: user.id,
               content,
               timestamp: Date.now()
             }
@@ -204,7 +281,9 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
             type: 'broadcast',
             event: 'cursor_update',
             payload: {
-              profileId: currentProfile.id,
+              userId: user.id,
+              userName: user.user_metadata?.name || user.email,
+              userEmail: user.email,
               position: {
                 lineNumber: position.lineNumber,
                 column: position.column
@@ -246,21 +325,40 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
     
     // Return cleanup function
     return cleanup;
-  }, [documentId, currentProfile]);
+  }, [documentId]);
 
   // Helper function to update collaborator cursor positions
   const updateCollaboratorCursor = useCallback((payload: any) => {
-    setCollaborators(prev => prev.map(collaborator => 
-      collaborator.id === payload.profileId
-        ? { 
-            ...collaborator, 
-            cursor: {
-              line: payload.position.lineNumber,
-              column: payload.position.column
-            }
-          }
-        : collaborator
-    ));
+    setCollaborators(prev => {
+      const existing = prev.find(c => c.id === payload.userId);
+      if (existing) {
+        return prev.map(collaborator => 
+          collaborator.id === payload.userId
+            ? { 
+                ...collaborator, 
+                cursor: {
+                  line: payload.position.lineNumber,
+                  column: payload.position.column
+                }
+              }
+            : collaborator
+        );
+      } else {
+        // Add new collaborator if not found
+        const newCollaborator: CollaboratorInfo = {
+          id: payload.userId,
+          name: payload.userName || 'Anonymous',
+          email: payload.userEmail || '',
+          color: COLLABORATOR_COLORS[prev.length % COLLABORATOR_COLORS.length],
+          cursor: {
+            line: payload.position.lineNumber,
+            column: payload.position.column
+          },
+          isActive: true
+        };
+        return [...prev, newCollaborator];
+      }
+    });
   }, []);
 
   // Helper function to update collaborators list from presence state
@@ -283,11 +381,68 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
     setCollaborators(collaboratorsList);
   }, [currentProfile?.id]);
 
+  // Function to render collaborator cursors in Monaco editor
+  const renderCollaboratorCursors = useCallback(() => {
+    if (!editorRef.current || !monacoRef.current) return;
+
+    // Clear existing decorations
+    const newDecorations = editorRef.current.deltaDecorations(cursorDecorations, []);
+    
+    // Create new decorations for each collaborator
+    const decorations: any[] = [];
+    
+    collaborators.forEach((collaborator, index) => {
+      if (collaborator.cursor && collaborator.isActive) {
+        const { line, column } = collaborator.cursor;
+        
+        // Create cursor line decoration
+        decorations.push({
+          range: new monacoRef.current.Range(line, column, line, column + 1),
+          options: {
+            className: `collaborator-cursor collaborator-cursor-${index}`,
+            beforeContentClassName: `collaborator-cursor-before collaborator-cursor-before-${index}`,
+            afterContentClassName: `collaborator-cursor-after collaborator-cursor-after-${index}`,
+            minimap: {
+              color: collaborator.color,
+              position: monacoRef.current.editor.MinimapPosition.Inline
+            },
+            overviewRuler: {
+              color: collaborator.color,
+              position: monacoRef.current.editor.OverviewRulerLane.Full
+            }
+          }
+        });
+
+        // Create user name label decoration
+        decorations.push({
+          range: new monacoRef.current.Range(line, column, line, column),
+          options: {
+            afterContentClassName: `collaborator-label collaborator-label-${index}`,
+            after: {
+              content: `${collaborator.name}`,
+              backgroundColor: collaborator.color,
+              color: '#fff'
+            }
+          }
+        });
+      }
+    });
+
+    // Apply decorations and store their IDs
+    const newDecorationIds = editorRef.current.deltaDecorations([], decorations);
+    setCursorDecorations(newDecorationIds);
+  }, [collaborators, cursorDecorations]);
+
+  // Update cursors when collaborators change
+  useEffect(() => {
+    renderCollaboratorCursors();
+  }, [collaborators, renderCollaboratorCursors]);
+
   // Update document embeddings after save
   const updateDocumentEmbeddings = async (docId: string) => {
     try {
-      const { error } = await supabase.functions.invoke('process-document', {
-        body: { documentId: docId, updateEmbeddings: true }
+      const { error } = await supabase.functions.invoke('update-embeddings', {
+        body: { documentId: docId }
       });
       
       if (error) {
@@ -427,44 +582,170 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
 
   return (
     <div className="h-full flex flex-col bg-white overflow-hidden">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between p-3 border-b bg-gray-50">
-        <div className="flex items-center gap-3">
+      {/* Collaborator Cursor Styles */}
+      <style jsx>{`
+        .collaborator-cursor {
+          border-left: 2px solid var(--collaborator-color);
+          animation: blink 1s infinite;
+        }
+        
+        .collaborator-cursor-before::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -2px;
+          width: 0;
+          height: 0;
+          border-left: 6px solid var(--collaborator-color);
+          border-top: 6px solid transparent;
+          border-bottom: 6px solid transparent;
+        }
+        
+        .collaborator-label {
+          position: relative;
+        }
+        
+        .collaborator-label::after {
+          position: absolute;
+          top: -20px;
+          left: 0;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 10px;
+          font-weight: bold;
+          white-space: nowrap;
+          z-index: 1000;
+          pointer-events: none;
+        }
+        
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0.3; }
+        }
+        
+        /* Individual collaborator colors */
+        ${collaborators.map((collaborator, index) => `
+          .collaborator-cursor-${index} {
+            --collaborator-color: ${collaborator.color};
+            border-left-color: ${collaborator.color} !important;
+          }
+          
+          .collaborator-cursor-before-${index}::before {
+            border-left-color: ${collaborator.color} !important;
+          }
+          
+          .collaborator-label-${index}::after {
+            background-color: ${collaborator.color} !important;
+            color: white !important;
+          }
+        `).join('')}
+      `}</style>
+      
+      {/* Single Unified Toolbar - Google Docs Style */}
+      <div className="flex items-center gap-3 px-4 py-2 border-b bg-white">
+        {/* Left: Document Name (Large & Editable) */}
+        <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-gray-500" />
-          <h2 className="font-semibold text-gray-900 truncate">{documentTitle}</h2>
+          <input 
+            type="text"
+            value={documentTitle}
+            onChange={(e) => {
+              // Handle document title change - you can add save logic here
+              console.log('Document title changed to:', e.target.value);
+            }}
+            className="text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 focus:px-3 focus:py-1 focus:rounded max-w-80"
+            placeholder="Untitled document"
+          />
           {isLocked && <Lock className="h-4 w-4 text-red-500" />}
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Connection status */}
-          <Badge variant={isConnected ? "default" : "destructive"}>
-            {isConnected ? "Connected" : "Disconnected"}
-          </Badge>
+        {/* Center: Essential Formatting Tools Only */}
+        <div className="flex items-center gap-1 flex-1">
+          {/* Quick Formatting */}
+          <div className="flex items-center">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <Bold className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <Italic className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <Underline className="h-4 w-4" />
+            </Button>
+          </div>
 
-          {/* Active Collaborators */}
-          {currentProfile && (
-            <ActiveCollaborators 
-              documentId={documentId}
-              currentProfileId={currentProfile.id}
-            />
-          )}
+          <Separator orientation="vertical" className="h-4 mx-1" />
 
-          <Separator orientation="vertical" className="h-6" />
+          <div className="flex items-center">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <AlignLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <AlignCenter className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <AlignRight className="h-4 w-4" />
+            </Button>
+          </div>
 
-          {/* Actions */}
-          <Button variant="outline" size="sm" onClick={handleSave}>
-            <Save className="h-4 w-4 mr-1" />
-            Save
-          </Button>
+          <Separator orientation="vertical" className="h-4 mx-1" />
 
-          <Button variant="outline" size="sm" onClick={handleCreateSnapshot} disabled={isCreatingSnapshot}>
-            <Camera className="h-4 w-4 mr-1" />
-            Snapshot
-          </Button>
+          <div className="flex items-center">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <List className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <ListOrdered className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
-          <Button variant="outline" size="sm" onClick={onVersionHistoryToggle}>
-            <History className="h-4 w-4 mr-1" />
-            History
+        {/* Right: Clean Status & Actions */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Connected Status */}
+          <div className="flex items-center gap-1">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-sm text-gray-600">{isConnected ? 'Connected' : 'Offline'}</span>
+          </div>
+
+          {/* Mode Selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 px-3 gap-2 text-sm">
+                <Edit3 className="h-4 w-4" />
+                Editing
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuItem>
+                <Edit3 className="h-4 w-4 mr-3" />
+                <div>
+                  <div className="font-medium">Editing</div>
+                  <div className="text-xs text-gray-500">Edit document directly</div>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <MessageSquare className="h-4 w-4 mr-3" />
+                <div>
+                  <div className="font-medium">Suggesting</div>
+                  <div className="text-xs text-gray-500">Edits become suggestions</div>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Eye className="h-4 w-4 mr-3" />
+                <div>
+                  <div className="font-medium">Viewing</div>
+                  <div className="text-xs text-gray-500">Read or print final document</div>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Share Button */}
+          <Button variant="outline" size="sm" className="h-8 px-3 text-sm">
+            <Share className="h-4 w-4 mr-1" />
+            Share
           </Button>
         </div>
       </div>
@@ -477,80 +758,99 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
         </div>
       )}
 
-      {/* Editor */}
-      <div className="flex-1 relative overflow-hidden">
+      {/* Editor with Google Docs-style page layout */}
+      <div className="flex-1 relative overflow-hidden bg-gray-100">
         {editorError ? (
           // Fallback textarea if Monaco fails
-          <div className="w-full h-full p-4">
-            <div className="text-red-600 mb-2 text-sm">
-              Monaco Editor failed to load. Using fallback editor.
+          <div className="w-full h-full p-4 bg-gray-100 flex justify-center">
+            <div className="w-full max-w-4xl bg-white shadow-sm p-8 mx-4 my-6">
+              <div className="text-red-600 mb-2 text-sm">
+                Monaco Editor failed to load. Using fallback editor.
+              </div>
+              <Textarea
+                value={fallbackContent}
+                onChange={(e) => {
+                  setFallbackContent(e.target.value);
+                  // Trigger save after a delay
+                  setTimeout(() => saveVersion(e.target.value, true), 1000);
+                }}
+                className="w-full h-full resize-none border-none shadow-none focus:ring-0 text-base leading-relaxed"
+                placeholder="Document content..."
+                style={{ fontFamily: 'Times, "Times New Roman", serif' }}
+              />
             </div>
-            <Textarea
-              value={fallbackContent}
-              onChange={(e) => {
-                setFallbackContent(e.target.value);
-                // Trigger save after a delay
-                setTimeout(() => saveVersion(e.target.value, true), 1000);
-              }}
-              className="w-full h-full resize-none font-mono text-sm"
-              placeholder="Document content..."
-            />
           </div>
         ) : (
-          <div className="w-full h-full">
-            <Editor
-              height="100%"
-              width="100%"
-              defaultLanguage="plaintext"
-              value={initialContent}
-              theme="vs-light"
-              loading={<div className="flex items-center justify-center h-full text-gray-500">Loading Monaco Editor...</div>}
-              options={{
-                fontSize: 14,
-                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                lineNumbers: 'on',
-                wordWrap: 'on',
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                folding: false,
-                renderWhitespace: 'none',
-                rulers: [80],
-                bracketPairColorization: { enabled: false },
-                readOnly: false
-              }}
-              onMount={(editor, monaco) => {
-                console.log('Monaco Editor mounted successfully!', editor);
-                editorRef.current = editor;
-                monacoRef.current = monaco;
-                setIsConnected(true);
-                
-                // Set initial content after mounting
-                if (initialContent) {
-                  console.log('Setting initial content:', initialContent.substring(0, 100) + '...');
-                  editor.setValue(initialContent);
-                }
-                
-                // Initialize collaborative features after Monaco is ready
-                setTimeout(() => {
-                  console.log('Initializing collaboration from onMount');
-                  initializeCollaboration();
-                }, 100);
-              }}
-              onChange={(value) => {
-                console.log('CollaborativeDocumentEditor: Editor content changed:', value?.substring(0, 50) + '...');
-                if (value !== undefined) {
-                  setFallbackContent(value);
-                  // Notify parent component of content change
-                  console.log('CollaborativeDocumentEditor: Calling onDocumentUpdate with:', value?.substring(0, 50) + '...');
-                  onDocumentUpdate?.(value);
-                }
-              }}
-              onError={(error) => {
-                console.error('Monaco Editor error:', error);
-                setEditorError(error.toString());
-              }}
-            />
+          <div className="w-full h-full bg-gray-100 flex justify-center overflow-auto">
+            {/* 8.5x11 page container */}
+            <div className="w-full max-w-4xl mx-4 my-6 bg-white shadow-sm" style={{
+              aspectRatio: '8.5 / 11',
+              minHeight: 'calc(11 * 96px)', // 11 inches at 96 DPI
+              width: 'calc(8.5 * 96px)', // 8.5 inches at 96 DPI
+              maxWidth: '816px' // 8.5 * 96
+            }}>
+              <Editor
+                height="100%"
+                width="100%"
+                defaultLanguage="plaintext"
+                value={initialContent}
+                theme="vs-light"
+                loading={<div className="flex items-center justify-center h-full text-gray-500">Loading Monaco Editor...</div>}
+                options={{
+                  fontSize: 14,
+                  fontFamily: 'Times, "Times New Roman", serif',
+                  lineNumbers: 'off',
+                  wordWrap: 'on',
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: true,
+                  automaticLayout: true,
+                  folding: false,
+                  renderWhitespace: 'none',
+                  rulers: [],
+                  bracketPairColorization: { enabled: false },
+                  readOnly: false,
+                  padding: { top: 48, bottom: 48, left: 48, right: 48 }, // 0.5 inch margins at 96 DPI
+                  scrollbar: {
+                    vertical: 'hidden',
+                    horizontal: 'hidden'
+                  },
+                  overviewRulerBorder: false,
+                  hideCursorInOverviewRuler: true,
+                  overviewRulerLanes: 0
+                }}
+                onMount={(editor, monaco) => {
+                  console.log('Monaco Editor mounted successfully!', editor);
+                  editorRef.current = editor;
+                  monacoRef.current = monaco;
+                  setIsConnected(true);
+                  
+                  // Set initial content after mounting
+                  if (initialContent) {
+                    console.log('Setting initial content:', initialContent.substring(0, 100) + '...');
+                    editor.setValue(initialContent);
+                  }
+                  
+                  // Initialize collaborative features after Monaco is ready
+                  setTimeout(() => {
+                    console.log('Initializing collaboration from onMount');
+                    initializeCollaboration();
+                  }, 100);
+                }}
+                onChange={(value) => {
+                  console.log('CollaborativeDocumentEditor: Editor content changed:', value?.substring(0, 50) + '...');
+                  if (value !== undefined) {
+                    setFallbackContent(value);
+                    // Notify parent component of content change
+                    console.log('CollaborativeDocumentEditor: Calling onDocumentUpdate with:', value?.substring(0, 50) + '...');
+                    onDocumentUpdate?.(value);
+                  }
+                }}
+                onError={(error) => {
+                  console.error('Monaco Editor error:', error);
+                  setEditorError(error.toString());
+                }}
+              />
+            </div>
           </div>
         )}
       </div>
