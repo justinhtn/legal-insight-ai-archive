@@ -33,7 +33,8 @@ import {
   Clipboard,
   Edit3,
   ChevronDown,
-  MessageSquare
+  MessageSquare,
+  Settings
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -113,6 +114,10 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
   const [editorError, setEditorError] = useState<string | null>(null);
   const [fallbackContent, setFallbackContent] = useState(initialContent);
   const [cursorDecorations, setCursorDecorations] = useState<string[]>([]);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [visibleLineCount, setVisibleLineCount] = useState(50);
+  const [showLineNumbers, setShowLineNumbers] = useState(true); // Document setting
+  const [zoomLevel, setZoomLevel] = useState(100); // Zoom percentage
   
   const { toast } = useToast();
   const { currentProfile, currentAccount } = useAccount();
@@ -582,8 +587,8 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
 
   return (
     <div className="h-full flex flex-col bg-white overflow-hidden">
-      {/* Collaborator Cursor Styles */}
-      <style jsx>{`
+      {/* Collaborator Cursor Styles and Legal Document Formatting */}
+      <style jsx global>{`
         .collaborator-cursor {
           border-left: 2px solid var(--collaborator-color);
           animation: blink 1s infinite;
@@ -623,6 +628,105 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
           51%, 100% { opacity: 0.3; }
         }
         
+        /* Legal Document Line Numbers - Custom Overlay */
+        .legal-line-numbers {
+          position: absolute;
+          left: 0;
+          top: 0; /* Start from very top of document */
+          bottom: 0; /* Go to very bottom */
+          width: ${Math.round(70 * (zoomLevel / 100))}px;
+          background-color: white;
+          border-right: 2px solid #333;
+          z-index: 10;
+          font-family: 'Times', 'Times New Roman', serif;
+          font-size: ${Math.round(14 * (zoomLevel / 100))}px;
+          line-height: ${Math.round(21 * (zoomLevel / 100))}px; /* Match Monaco's line height */
+          color: #333;
+          padding-right: ${Math.round(8 * (zoomLevel / 100))}px;
+          padding-top: ${Math.round(48 * (zoomLevel / 100))}px; /* Add padding to align with text */
+          text-align: right;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        
+        .legal-line-numbers .line-number {
+          height: ${Math.round(21 * (zoomLevel / 100))}px;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          padding-right: ${Math.round(8 * (zoomLevel / 100))}px;
+        }
+        
+        /* Force Monaco editor content to respect the line number margin */
+        .monaco-editor .view-lines {
+          margin-left: 40px !important;
+        }
+        
+        .monaco-editor .editor-scrollable {
+          margin-left: 40px !important;
+        }
+        
+        .monaco-editor .monaco-scrollable-element {
+          margin-left: 40px !important;
+        }
+        
+        /* Hide Monaco's unwanted visual elements */
+        .monaco-editor .current-line {
+          border: none !important;
+        }
+        
+        .monaco-editor .view-cursor {
+          border-left: 2px solid #000 !important;
+        }
+        
+        .monaco-editor .cursor {
+          border-left: 2px solid #000 !important;
+        }
+        
+        .monaco-editor .focus-tracker {
+          display: none !important;
+        }
+        
+        .monaco-editor .margin-view-overlays {
+          border-right: none !important;
+        }
+        
+        /* Hide the blue line - likely overview ruler or guides */
+        .monaco-editor .overview-ruler {
+          display: none !important;
+        }
+        
+        .monaco-editor .minimap {
+          display: none !important;
+        }
+        
+        .monaco-editor .decorationsOverviewRuler {
+          display: none !important;
+        }
+        
+        .monaco-editor .overview-ruler-decoration {
+          display: none !important;
+        }
+        
+        .monaco-editor .glyph-margin {
+          display: none !important;
+        }
+        
+        .monaco-editor .margin-view-overlays .current-line {
+          border: none !important;
+          background: none !important;
+        }
+        
+        /* Override VS Code focus border - this is the blue line! */
+        .monaco-editor {
+          --vscode-focusBorder: transparent !important;
+          --vscode-editorIndentGuide-background: transparent !important;
+        }
+        
+        .monaco-editor .monaco-editor-background {
+          --vscode-focusBorder: transparent !important;
+        }
+        
         /* Individual collaborator colors */
         ${collaborators.map((collaborator, index) => `
           .collaborator-cursor-${index} {
@@ -657,6 +761,87 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
             placeholder="Untitled document"
           />
           {isLocked && <Lock className="h-4 w-4 text-red-500" />}
+        </div>
+
+        {/* Menu Dropdowns */}
+        <div className="flex items-center gap-1">
+          {/* File Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 px-3 text-sm">
+                File
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem onClick={handleSave}>
+                <Save className="h-4 w-4 mr-3" />
+                Save
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Download className="h-4 w-4 mr-3" />
+                Export as PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Edit Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 px-3 text-sm">
+                Edit
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem>
+                <Copy className="h-4 w-4 mr-3" />
+                Copy
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Clipboard className="h-4 w-4 mr-3" />
+                Paste
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Format Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 px-3 text-sm">
+                Format
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem>
+                <Type className="h-4 w-4 mr-3" />
+                Font
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Bold className="h-4 w-4 mr-3" />
+                Text Style
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Tools Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 px-3 text-sm">
+                Tools
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem onClick={() => setShowLineNumbers(!showLineNumbers)}>
+                <Type className="h-4 w-4 mr-3" />
+                {showLineNumbers ? 'Hide' : 'Show'} Line Numbers
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Settings className="h-4 w-4 mr-3" />
+                Preferences
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Center: Essential Formatting Tools Only */}
@@ -702,6 +887,31 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
 
         {/* Right: Clean Status & Actions */}
         <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-1">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 w-8 p-0"
+              onClick={() => setZoomLevel(Math.max(50, zoomLevel - 10))}
+              disabled={zoomLevel <= 50}
+            >
+              -
+            </Button>
+            <span className="text-sm text-gray-600 min-w-12 text-center">
+              {zoomLevel}%
+            </span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 w-8 p-0"
+              onClick={() => setZoomLevel(Math.min(200, zoomLevel + 10))}
+              disabled={zoomLevel >= 200}
+            >
+              +
+            </Button>
+          </div>
+
           {/* Connected Status */}
           <div className="flex items-center gap-1">
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
@@ -783,12 +993,35 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
         ) : (
           <div className="w-full h-full bg-gray-100 flex justify-center overflow-auto">
             {/* 8.5x11 page container */}
-            <div className="w-full max-w-4xl mx-4 my-6 bg-white shadow-sm" style={{
-              aspectRatio: '8.5 / 11',
-              minHeight: 'calc(11 * 96px)', // 11 inches at 96 DPI
-              width: 'calc(8.5 * 96px)', // 8.5 inches at 96 DPI
-              maxWidth: '816px' // 8.5 * 96
-            }}>
+            <div 
+              className="mx-4 my-6 bg-white shadow-sm rounded-lg relative overflow-hidden" 
+              style={{
+                aspectRatio: '8.5 / 11',
+                minHeight: `calc(11 * 96px * ${zoomLevel / 100})`, // 11 inches at 96 DPI with zoom
+                width: `calc(8.5 * 96px * ${zoomLevel / 100})`, // 8.5 inches at 96 DPI with zoom
+                maxWidth: `${816 * (zoomLevel / 100)}px`, // 8.5 * 96 with zoom
+                transform: `scale(1)`, // Keep at scale 1, size handles zoom
+                transformOrigin: 'top center'
+              }}
+            >
+              {/* Custom Legal Line Numbers - Conditional */}
+              {showLineNumbers && (
+                <div className="legal-line-numbers">
+                  <div 
+                    style={{ 
+                      transform: `translateY(-${scrollTop}px)`,
+                      transition: 'none'
+                    }}
+                  >
+                    {Array.from({ length: Math.max(visibleLineCount, 100) }, (_, i) => (
+                      <div key={i} className="line-number">
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <Editor
                 height="100%"
                 width="100%"
@@ -797,7 +1030,7 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
                 theme="vs-light"
                 loading={<div className="flex items-center justify-center h-full text-gray-500">Loading Monaco Editor...</div>}
                 options={{
-                  fontSize: 14,
+                  fontSize: Math.round(14 * (zoomLevel / 100)),
                   fontFamily: 'Times, "Times New Roman", serif',
                   lineNumbers: 'off',
                   wordWrap: 'on',
@@ -809,14 +1042,29 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
                   rulers: [],
                   bracketPairColorization: { enabled: false },
                   readOnly: false,
-                  padding: { top: 48, bottom: 48, left: 48, right: 48 }, // 0.5 inch margins at 96 DPI
+                  padding: { 
+                    top: Math.round(48 * (zoomLevel / 100)), 
+                    bottom: Math.round(48 * (zoomLevel / 100)), 
+                    left: showLineNumbers ? Math.round(115 * (zoomLevel / 100)) : Math.round(48 * (zoomLevel / 100)), // Conditional left padding with zoom
+                    right: Math.round(48 * (zoomLevel / 100))
+                  },
                   scrollbar: {
-                    vertical: 'hidden',
-                    horizontal: 'hidden'
+                    vertical: 'auto',
+                    horizontal: 'auto'
                   },
                   overviewRulerBorder: false,
                   hideCursorInOverviewRuler: true,
-                  overviewRulerLanes: 0
+                  overviewRulerLanes: 0,
+                  glyphMargin: false,
+                  lineDecorationsWidth: 0,
+                  renderLineHighlight: 'none',
+                  renderIndentGuides: false,
+                  renderValidationDecorations: 'off',
+                  showFoldingControls: 'never',
+                  fontLigatures: false,
+                  cursorBlinking: 'solid',
+                  cursorWidth: 2,
+                  cursorStyle: 'line'
                 }}
                 onMount={(editor, monaco) => {
                   console.log('Monaco Editor mounted successfully!', editor);
@@ -828,6 +1076,23 @@ const CollaborativeDocumentEditor: React.FC<CollaborativeDocumentEditorProps> = 
                   if (initialContent) {
                     console.log('Setting initial content:', initialContent.substring(0, 100) + '...');
                     editor.setValue(initialContent);
+                  }
+                  
+                  // Add scroll listener to sync line numbers
+                  editor.onDidScrollChange((e) => {
+                    setScrollTop(e.scrollTop);
+                  });
+                  
+                  // Update visible line count when content changes
+                  const model = editor.getModel();
+                  if (model) {
+                    const updateLineCount = () => {
+                      const lineCount = model.getLineCount();
+                      setVisibleLineCount(Math.max(lineCount + 10, 50)); // Add buffer lines
+                    };
+                    
+                    updateLineCount();
+                    model.onDidChangeContent(updateLineCount);
                   }
                   
                   // Initialize collaborative features after Monaco is ready
